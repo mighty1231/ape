@@ -11,10 +11,10 @@ public class StopTestingException extends RuntimeException {
         super();
     }
 
-    public StopTestingException(String message, Throwable cause, boolean enableSuppression,
-            boolean writableStackTrace) {
-        super(message, cause, enableSuppression, writableStackTrace);
-    }
+    // public StopTestingException(String message, Throwable cause, boolean enableSuppression,
+    //         boolean writableStackTrace) {
+    //     super(message, cause, enableSuppression, writableStackTrace);
+    // }
 
     public StopTestingException(String message, Throwable cause) {
         super(message, cause);

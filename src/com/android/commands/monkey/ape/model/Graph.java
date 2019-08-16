@@ -47,6 +47,11 @@ public class Graph implements Serializable {
         public boolean hasNext() {
             return iterator.hasNext();
         }
+
+        @Override
+        public void remove() {
+            throw new UnsupportedOperationException();
+        }
     }
 
     public static Iterator<State> targets(Collection<StateTransition> edges) {
@@ -328,6 +333,11 @@ public class Graph implements Serializable {
             @Override
             public GUITree next() {
                 return treeIterator.next();
+            }
+
+            @Override
+            public void remove() {
+                throw new UnsupportedOperationException();
             }
 
         };

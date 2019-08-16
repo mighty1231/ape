@@ -74,6 +74,11 @@ public class GUITreeTransition implements Serializable {
             public GUITree next() {
                 return advance().getSource();
             }
+
+            @Override
+            public void remove() {
+                throw new UnsupportedOperationException();
+            }
         };
     }
 
@@ -83,6 +88,11 @@ public class GUITreeTransition implements Serializable {
             public GUITree next() {
                 return advance().getTarget();
             }
+
+            @Override
+            public void remove() {
+                throw new UnsupportedOperationException();
+            }
         };
     }
 
@@ -91,6 +101,11 @@ public class GUITreeTransition implements Serializable {
             @Override
             public GUITreeAction next() {
                 return advance().getAction();
+            }
+
+            @Override
+            public void remove() {
+                throw new UnsupportedOperationException();
             }
         };
     }

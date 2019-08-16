@@ -11,9 +11,9 @@ public class BadStateException extends RuntimeException {
         super();
     }
 
-    public BadStateException(String message, Throwable cause, boolean enableSuppression, boolean writableStackTrace) {
-        super(message, cause, enableSuppression, writableStackTrace);
-    }
+    // public BadStateException(String message, Throwable cause, boolean enableSuppression, boolean writableStackTrace) {
+    //     super(message, cause, enableSuppression, writableStackTrace);
+    // }
 
     public BadStateException(String message, Throwable cause) {
         super(message, cause);

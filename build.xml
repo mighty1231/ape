@@ -6,7 +6,7 @@
     <property name="src.dir" location="src" />
     <property name="bin.dir" location="bin" />
 
-    <property name="framework.loc" location="framework/classes-full-debug.jar" />
+    <property name="framework.loc" location="framework/classes-full-debug-511.jar" />
     <property name="dalvik_stub.loc" location="dalvik_stub/classes.jar" />
 
 

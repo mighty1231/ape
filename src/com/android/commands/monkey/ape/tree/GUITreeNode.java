@@ -252,6 +252,11 @@ public class GUITreeNode implements Serializable {
                 current = current.sibling;
                 return ret;
             }
+
+            @Override
+            public void remove() {
+                throw new UnsupportedOperationException();
+            }
         };
     }
 

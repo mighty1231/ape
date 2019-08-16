@@ -11,10 +11,10 @@ public class NoValidActionException extends RuntimeException {
         super();
     }
 
-    public NoValidActionException(String message, Throwable cause, boolean enableSuppression,
-            boolean writableStackTrace) {
-        super(message, cause, enableSuppression, writableStackTrace);
-    }
+    // public NoValidActionException(String message, Throwable cause, boolean enableSuppression,
+    //         boolean writableStackTrace) {
+    //     super(message, cause, enableSuppression, writableStackTrace);
+    // }
 
     public NoValidActionException(String message, Throwable cause) {
         super(message, cause);

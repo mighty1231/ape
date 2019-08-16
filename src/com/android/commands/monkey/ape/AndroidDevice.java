@@ -348,7 +348,7 @@ public class AndroidDevice {
         return false;
     }
 
-    private static boolean clearPackage(String packageName) {
+    public static boolean clearPackage(String packageName) {
         try {
             int ret = executeCommandAndWaitFor(new String[] { "pm", "clear", packageName });
             return ret == 0;
@@ -356,10 +356,6 @@ public class AndroidDevice {
             Logger.wformat("Clear package %s results in error %s", packageName, e);
         }
         return false;
-    }
-
-    public static boolean clearPackage(String packageName, String[] savedPermissions) {
-        return clearPackage(packageName) && grantRuntimePermissions(packageName, savedPermissions, "clearing package");
     }
 
     public static boolean isInputMethod(String packageName) {
@@ -415,7 +411,7 @@ public class AndroidDevice {
 
     private static boolean broadcastIntent(Intent intent) {
         try {
-            iActivityManager.broadcastIntent(null, intent, null, null, 0, null, null, null, 0, null, false, false, 0);
+            iActivityManager.broadcastIntent(null, intent, null, null, 0, null, null, null, 0, false, false, 0);
             return true;
         } catch (RemoteException e) {
             Logger.wformat("Broadcast Intent error", intent);

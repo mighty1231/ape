@@ -11,10 +11,10 @@ public class TrivialStateException extends RuntimeException {
         super();
     }
 
-    public TrivialStateException(String message, Throwable cause, boolean enableSuppression,
-            boolean writableStackTrace) {
-        super(message, cause, enableSuppression, writableStackTrace);
-    }
+    // public TrivialStateException(String message, Throwable cause, boolean enableSuppression,
+    //         boolean writableStackTrace) {
+    //     super(message, cause, enableSuppression, writableStackTrace);
+    // }
 
     public TrivialStateException(String message, Throwable cause) {
         super(message, cause);

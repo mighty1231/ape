@@ -91,13 +91,11 @@ public class MonkeySourceApe implements MonkeyEventSource {
             Surface.ROTATION_180, Surface.ROTATION_270, };
 
     private List<ComponentName> mMainApps;
-    private Map<String, String[]> packagePermissions;
     private int mEventCount = 0; // total number of events generated so far
     private MonkeyEventQueue mQ;
     private int mVerbose = 0;
     private long mThrottle = defaultGUIThrottle;
     private boolean mRandomizeThrottle = false;
-    private MonkeyPermissionUtil mPermissionUtil;
     private Random mRandom;
 
     // private boolean mKeyboardOpen = false;
@@ -206,23 +204,15 @@ public class MonkeySourceApe implements MonkeyEventSource {
     }
 
     public MonkeySourceApe(Random random,
-            List<ComponentName> MainApps, long throttle, boolean randomizeThrottle, boolean permissionTargetSystem,
-            File outputDirectory) {
+            List<ComponentName> MainApps, long throttle, boolean randomizeThrottle, File outputDirectory) {
         mRandom = random;
         mMainApps = MainApps;
-        packagePermissions = new HashMap<>();
-        for (ComponentName app : MainApps) {
-            packagePermissions.put(app.getPackageName(), AndroidDevice.getGrantedPermissions(app.getPackageName()));
-        }
         mThrottle = throttle;
         if (mThrottle == 0) {
             mThrottle = defaultGUIThrottle;
         }
         mRandomizeThrottle = randomizeThrottle;
         mQ = new MonkeyEventQueue(random, 0, false); // we manage throttle
-        mPermissionUtil = new MonkeyPermissionUtil();
-        mPermissionUtil.setTargetSystemPackages(permissionTargetSystem);
-        // mPermissionUtil.populatePermissionsMapping();
         mOutputDirectory = outputDirectory;
         mEventProduceLoggerFile = new File(mOutputDirectory, "produce.log");
         mEventProduceLogger = openWriter(mEventProduceLoggerFile);
@@ -689,8 +679,12 @@ public class MonkeySourceApe implements MonkeyEventSource {
             Logger.format("%s[%d]null info", tab, index);
             return;
         }
-        Logger.format("%s[%d] %s %s %s", tab, index, info.getPackageName(), info.getClassName(),
-                info.getBoundsInScreen());
+        Rect nodePosition = new Rect();
+        info.getBoundsInScreen(nodePosition);
+        Logger.format("%s[%d] %s %s %d %d %d %d", tab, index, info.getPackageName(), info.getClassName(),
+                nodePosition.left, nodePosition.top,
+                nodePosition.right-nodePosition.left,
+                nodePosition.bottom-nodePosition.top);
         tab = tab + "\t";
         for (int i = 0; i < info.getChildCount(); i++) {
             AccessibilityNodeInfo child = info.getChild(i);
@@ -848,27 +842,7 @@ public class MonkeySourceApe implements MonkeyEventSource {
     }
 
     public void clearPackage(String packageName) {
-        String[] permissions = this.packagePermissions.get(packageName);
-        if (permissions == null) {
-            Logger.wprintln("Stop clearing untracked package: " + packageName);
-            return;
-        }
-        AndroidDevice.clearPackage(packageName, permissions);
-    }
-
-    public void grantRuntimePermissions(String packageName, String reason) {
-        String[] permissions = this.packagePermissions.get(packageName);
-        if (permissions == null) {
-            Logger.wprintln("Stop granting permissions to untracked package: " + packageName);
-            return;
-        }
-        AndroidDevice.grantRuntimePermissions(packageName, permissions, reason);
-    }
-
-    public void grantRuntimePermissions(String reason) {
-        for (ComponentName cn : mMainApps) {
-            grantRuntimePermissions(cn.getPackageName(), reason);
-        }
+        AndroidDevice.clearPackage(packageName);
     }
 
     protected void restartPackage(ComponentName cn, boolean clearPackage, String reason) {

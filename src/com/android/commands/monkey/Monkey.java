@@ -259,8 +259,6 @@ public class Monkey {
 
     private MonkeyNetworkMonitor mNetworkMonitor = new MonkeyNetworkMonitor();
 
-    private boolean mPermissionTargetSystem = false;
-
     // information on the current activity.
     public static Intent currentIntent;
 
@@ -397,17 +395,6 @@ public class Monkey {
                     if (intent.getComponent().getClassName().equals("com.android.systemui.recents.RecentsActivity")) {
                         Logger.iprintln("Enable RecentsActivity");
                         return true;
-                    }
-                }
-                // com.android.packageinstaller/.permission.ui.GrantPermissionsActivity
-                if (pkg.equals("com.android.packageinstaller")) {
-                    if (intent.getComponent().getClassName()
-                            .equals("com.android.packageinstaller.permission.ui.GrantPermissionsActivity")) {
-                        Logger.iprintln("Request permission: " + intent);
-                        if (mUseApe) {
-                            ((MonkeySourceApe) mEventSource).stopPackages();
-                            ((MonkeySourceApe) mEventSource).grantRuntimePermissions("GrantPermissionsActivity");
-                        }
                     }
                 }
             }
@@ -740,14 +727,13 @@ public class Monkey {
             AndroidDevice.initializeAndroidDevice(mAm, mWm, mPm);
             AndroidDevice.checkInteractive();
             mEventSource = new MonkeySourceApe(mRandom, mMainApps, mThrottle,
-                    mRandomizeThrottle, mPermissionTargetSystem, mOutputDirectory);
+                    mRandomizeThrottle, mOutputDirectory);
             mEventSource.setVerbose(mVerbose);
             if (mApeCleanApp) {
                 for (ComponentName cn : mMainApps) {
                     String packageName = cn.getPackageName();
                     AndroidDevice.stopPackage(packageName);
-                    String[] permissions = AndroidDevice.getGrantedPermissions(packageName);
-                    AndroidDevice.clearPackage(packageName, permissions);
+                    AndroidDevice.clearPackage(packageName);
                 }
             }
         } else {
@@ -755,8 +741,7 @@ public class Monkey {
             if (mVerbose >= 2) { // check seeding performance
                 System.out.println("// Seeded: " + mSeed);
             }
-            mEventSource = new MonkeySourceRandom(mRandom, mMainApps, mThrottle, mRandomizeThrottle,
-                    mPermissionTargetSystem);
+            mEventSource = new MonkeySourceRandom(mRandom, mMainApps, mThrottle, mRandomizeThrottle);
             mEventSource.setVerbose(mVerbose);
             // set any of the factors that has been set
             for (int i = 0; i < MonkeySourceRandom.FACTORZ_COUNT; i++) {
@@ -961,9 +946,6 @@ public class Monkey {
                 } else if (opt.equals("--pct-pinchzoom")) {
                     int i = MonkeySourceRandom.FACTOR_PINCHZOOM;
                     mFactors[i] = -nextOptionLong("pinch zoom events percentage");
-                } else if (opt.equals("--pct-permission")) {
-                    int i = MonkeySourceRandom.FACTOR_PERMISSION;
-                    mFactors[i] = -nextOptionLong("runtime permission toggle events percentage");
                 } else if (opt.equals("--pkg-blacklist-file")) {
                     mPkgBlacklistFile = nextOptionData();
                 } else if (opt.equals("--pkg-whitelist-file")) {
@@ -996,8 +978,6 @@ public class Monkey {
                 } else if (opt.equals("--periodic-bugreport")) {
                     mGetPeriodicBugreport = true;
                     mBugreportFrequency = nextOptionLong("Number of iterations");
-                } else if (opt.equals("--permission-target-system")) {
-                    mPermissionTargetSystem = true;
                 } else if (opt.equals("-h")) {
                     showUsage();
                     return false;
@@ -1600,7 +1580,6 @@ public class Monkey {
         usage.append("              [--pct-nav PERCENT] [--pct-majornav PERCENT]\n");
         usage.append("              [--pct-appswitch PERCENT] [--pct-flip PERCENT]\n");
         usage.append("              [--pct-anyevent PERCENT] [--pct-pinchzoom PERCENT]\n");
-        usage.append("              [--pct-permission PERCENT]\n");
         usage.append("              [--pkg-blacklist-file PACKAGE_BLACKLIST_FILE]\n");
         usage.append("              [--pkg-whitelist-file PACKAGE_WHITELIST_FILE]\n");
         usage.append("              [--wait-dbg] [--dbg-no-events]\n");
@@ -1614,7 +1593,6 @@ public class Monkey {
         usage.append("              [--script-log]\n");
         usage.append("              [--bugreport]\n");
         usage.append("              [--periodic-bugreport]\n");
-        usage.append("              [--permission-target-system]\n");
         usage.append("              COUNT\n");
         System.err.println(usage.toString());
     }
