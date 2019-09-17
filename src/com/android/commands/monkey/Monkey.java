@@ -792,10 +792,11 @@ public class Monkey {
 
         if (mCommunicateWithART) {
             try {
-                mMonkeyServer = new MonkeyServer();
+                MonkeyServer.makeInstance();
             } catch (IOException e) {
                 throw new RuntimeException("Failed to initialize MonkeyServer");
             }
+            mMonkeyServer = MonkeyServer.getInstance();
             mMonkeyServerThread = new Thread(mMonkeyServer);
             mMonkeyServerThread.start();
         }

@@ -35,6 +35,7 @@ import com.android.commands.monkey.ape.utils.Config;
 import com.android.commands.monkey.ape.utils.Logger;
 import com.android.commands.monkey.ape.utils.RandomHelper;
 import com.android.commands.monkey.ape.utils.Utils;
+import com.android.commands.monkey.ape.MonkeyServer;
 
 import android.content.ComponentName;
 import android.content.Intent;
@@ -133,6 +134,8 @@ public abstract class ApeAgent implements Agent {
         CrashAction action = new CrashAction(crash);
         Logger.iformat("Appending crash [%s] to action history [%s]", crash, Thread.currentThread());
         appendToActionHistory(timeMillis, action);
+        MonkeyServer server = MonkeyServer.getInstance();
+        if (server != null) { server.alertCrash(); }
         return false;
     }
 

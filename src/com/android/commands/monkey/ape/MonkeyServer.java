@@ -15,7 +15,8 @@ import com.android.commands.monkey.ape.AppTerminatedException;
  *
  */
 public class MonkeyServer implements Runnable {
-    public static final String SOCK_ADDRESS = "/dev/mt/ape";
+    private static final String SOCK_ADDRESS = "/dev/mt/ape";
+    private static MonkeyServer instance = null;
 
     private LocalServerSocket lss;
     private int value = 0;
@@ -26,15 +27,30 @@ public class MonkeyServer implements Runnable {
     private OutputStream os;
 
     // Store time for last idle time
-    private long last_idle_time;
+    private long last_idle_time; // must be protected with lock
 
     // buffer to read 8 bytes
     private byte[] buffer;
 
-    public MonkeyServer() throws IOException {
+    private MonkeyServer() throws IOException {
         lss = new LocalServerSocket(SOCK_ADDRESS);
         last_idle_time = 0;
         buffer = new byte[8];
+    }
+
+    public static void makeInstance() throws IOException {
+        instance = new MonkeyServer();
+    }
+
+    public static MonkeyServer getInstance() {
+        return instance;
+    }
+
+    public void alertCrash() {
+        synchronized (this) {
+            last_idle_time = -1; // crashed
+            notifyAll();
+        }
     }
 
     /**
@@ -49,7 +65,9 @@ public class MonkeyServer implements Runnable {
                 last_time_fetched = last_idle_time;
             }
             time_current = System.currentTimeMillis();
-            if (fromMillis < last_time_fetched || time_current > time_end) {
+            if (last_time_fetched == -1 /* crash */
+                  || fromMillis < last_time_fetched /* caught idle */
+                  || time_current > time_end /* timeout */) {
                 break;
             }
             synchronized (this) {
@@ -61,31 +79,31 @@ public class MonkeyServer implements Runnable {
                 }
             }
         }
-        if (time_current > time_end)
+        if (last_time_fetched == -1 || time_current > time_end)
             return -1;
         return last_time_fetched;
     }
 
-    public long waitForFirstIdle() {
-        long last_time_fetched;
-        while (true) {
-            synchronized (this) {
-                last_time_fetched = last_idle_time;
-            }
-            if (last_time_fetched != 0) {
-                break;
-            }
-            synchronized (this) {
-                try {
-                    wait();
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                    Thread.currentThread().interrupt();
-                }
-            }
-        }
-        return last_time_fetched;
-    }
+    // public long waitForFirstIdle() {
+    //     long last_time_fetched;
+    //     while (true) {
+    //         synchronized (this) {
+    //             last_time_fetched = last_idle_time;
+    //         }
+    //         if (last_time_fetched != 0) {
+    //             break;
+    //         }
+    //         synchronized (this) {
+    //             try {
+    //                 wait();
+    //             } catch (InterruptedException e) {
+    //                 e.printStackTrace();
+    //                 Thread.currentThread().interrupt();
+    //             }
+    //         }
+    //     }
+    //     return last_time_fetched;
+    // }
 
     @Override
     public void run() {
@@ -119,7 +137,7 @@ public class MonkeyServer implements Runnable {
 
                 if (byte_written == -1) {
                     // App would be terminated, so wait for accept
-                    System.out.println("** The target seems to be terminated ");
+                    System.out.println("[MonkeyServer] The target seems to be terminated ");
                     try {
                         socket.close();
                     } catch (IOException e) {}
@@ -137,7 +155,7 @@ public class MonkeyServer implements Runnable {
                                      + ((long)(buffer[5] & 0xFF) << 40)
                                      + ((long)(buffer[6] & 0xFF) << 48)
                                      + ((long)(buffer[7] & 0xFF) << 56);
-                    System.out.println("Idle time received: " +last_idle_time);
+                    System.out.println("[MonkeyServer] Idle time received: " +last_idle_time);
                     notify();
                 }
             }
