@@ -36,6 +36,7 @@ import com.android.commands.monkey.ape.Agent;
 import com.android.commands.monkey.ape.AndroidDevice;
 import com.android.commands.monkey.ape.utils.Config;
 import com.android.commands.monkey.ape.utils.Logger;
+import com.android.commands.monkey.ape.MonkeyServer;
 
 import android.app.IActivityController;
 import android.app.IActivityManager;
@@ -263,6 +264,12 @@ public class Monkey {
     public static Intent currentIntent;
 
     public static String currentPackage;
+
+    /* Communicate with Android Runtime in target app with MonkeyServer */
+    private boolean mCommunicateWithART = false;
+
+    private MonkeyServer mMonkeyServer;
+    private Thread mMonkeyServerThread;
 
     /**
      * Monitor operations happening in the system.
@@ -604,6 +611,22 @@ public class Monkey {
             Logger.println("Please report this bug to developers.");
             System.exit(1);
         }
+        /* Client code
+        try {
+            LocalSocket localSocket = new LocalSocket();
+            String sock_name = "/dev/mt/server";
+            LocalSocketAddress lsa = new LocalSocketAddress(sock_name, LocalSocketAddress.Namespace.ABSTRACT);
+            localSocket.connect(lsa);
+            InputStream is = localSocket.getInputStream();
+            byte[] buf = new byte[4];
+            is.read(buf);
+            System.out.println("buf " + buf[0] + " " + buf[1] + " " + buf[2] + " " + buf[3]);
+            localSocket.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+            System.exit(1);
+        }
+        */
     }
 
     /**
@@ -766,6 +789,17 @@ public class Monkey {
         }
 
         mNetworkMonitor.start();
+
+        if (mCommunicateWithART) {
+            try {
+                mMonkeyServer = new MonkeyServer();
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to initialize MonkeyServer");
+            }
+            mMonkeyServerThread = new Thread(mMonkeyServer);
+            mMonkeyServerThread.start();
+        }
+
         int crashedAtCycle = 0;
         try {
             crashedAtCycle = runMonkeyCycles();
@@ -981,6 +1015,8 @@ public class Monkey {
                 } else if (opt.equals("-h")) {
                     showUsage();
                     return false;
+                } else if (opt.equals("--mt")) {
+                    mCommunicateWithART = true;
                 } else {
                     System.err.println("** Error: Unknown option: " + opt);
                     showUsage();
@@ -1372,7 +1408,22 @@ public class Monkey {
 
             MonkeyEvent ev = mEventSource.getNextEvent();
             if (ev != null) {
+                long cur_time = System.currentTimeMillis();
                 int injectCode = ev.injectEvent(mWm, mAm, mVerbose);
+
+                // Wait for Idle
+                if (mCommunicateWithART && !(ev instanceof MonkeyThrottleEvent)) {
+                    long wait_millis = 2000;
+                    if (ev instanceof MonkeyActivityEvent) {
+                        wait_millis = 10000;
+                    }
+                    long before = System.currentTimeMillis();
+                    System.out.println("Wait for idle...");
+                    long result = mMonkeyServer.waitForIdle(cur_time, wait_millis);
+                    long after = System.currentTimeMillis();
+                    System.out.println("curtime "+after+" Waited for event "+ev.getClass().getName()+" with result "+result+" for "+(after-before) + "ms");
+                }
+
                 if (injectCode == MonkeyEvent.INJECT_FAIL) {
                     System.out.println("    // Injection Failed " + ev);
                     if (ev instanceof MonkeyKeyEvent) {
@@ -1593,6 +1644,7 @@ public class Monkey {
         usage.append("              [--script-log]\n");
         usage.append("              [--bugreport]\n");
         usage.append("              [--periodic-bugreport]\n");
+        usage.append("              [--mt]\n");
         usage.append("              COUNT\n");
         System.err.println(usage.toString());
     }
