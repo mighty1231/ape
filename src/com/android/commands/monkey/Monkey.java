@@ -747,6 +747,16 @@ public class Monkey {
             }
             mCount = Integer.MAX_VALUE;
         } else if (mUseApe) {
+            if (mCommunicateWithART) {
+                try {
+                    MonkeyServer.makeInstance();
+                } catch (IOException e) {
+                    throw new RuntimeException("Failed to initialize MonkeyServer");
+                }
+                mMonkeyServer = MonkeyServer.getInstance();
+                mMonkeyServerThread = new Thread(mMonkeyServer);
+                mMonkeyServerThread.start();
+            }
             AndroidDevice.initializeAndroidDevice(mAm, mWm, mPm);
             AndroidDevice.checkInteractive();
             mEventSource = new MonkeySourceApe(mRandom, mMainApps, mThrottle,
@@ -789,18 +799,6 @@ public class Monkey {
         }
 
         mNetworkMonitor.start();
-
-        if (mCommunicateWithART) {
-            try {
-                MonkeyServer.makeInstance();
-            } catch (IOException e) {
-                throw new RuntimeException("Failed to initialize MonkeyServer");
-            }
-            mMonkeyServer = MonkeyServer.getInstance();
-            mMonkeyServerThread = new Thread(mMonkeyServer);
-            mMonkeyServerThread.start();
-        }
-
         int crashedAtCycle = 0;
         try {
             crashedAtCycle = runMonkeyCycles();
@@ -1300,6 +1298,8 @@ public class Monkey {
             mKillProcessAfterError = true;
         }
 
+        long lastEventsEndTime = 0;
+
         // TO DO : The count should apply to each of the script file.
         while (!systemCrashed) {
             // Check user specified stopping condition
@@ -1387,6 +1387,9 @@ public class Monkey {
                     shouldAbort = false;
                     System.out.println("** Monkey aborted due to error.");
                     System.out.println("Events injected: " + eventCounter);
+                    if (mEventSource instanceof MonkeySourceApe) {
+                        ((MonkeySourceApe) mEventSource).dumpActions();
+                    }
                     return eventCounter;
                 }
             }
@@ -1409,21 +1412,7 @@ public class Monkey {
 
             MonkeyEvent ev = mEventSource.getNextEvent();
             if (ev != null) {
-                long cur_time = System.currentTimeMillis();
                 int injectCode = ev.injectEvent(mWm, mAm, mVerbose);
-
-                // Wait for Idle
-                if (mCommunicateWithART && !(ev instanceof MonkeyThrottleEvent)) {
-                    long wait_millis = 2000;
-                    if (ev instanceof MonkeyActivityEvent) {
-                        wait_millis = 10000;
-                    }
-                    long before = System.currentTimeMillis();
-                    System.out.println("Wait for idle...");
-                    long result = mMonkeyServer.waitForIdle(cur_time, wait_millis);
-                    long after = System.currentTimeMillis();
-                    System.out.println("curtime "+after+" Waited for event "+ev.getClass().getName()+" with result "+result+" for "+(after-before) + "ms");
-                }
 
                 if (injectCode == MonkeyEvent.INJECT_FAIL) {
                     System.out.println("    // Injection Failed " + ev);
@@ -1471,6 +1460,9 @@ public class Monkey {
             }
         }
         System.out.println("Events injected: " + eventCounter);
+        if (mEventSource instanceof MonkeySourceApe) {
+            ((MonkeySourceApe) mEventSource).dumpActions();
+        }
         return eventCounter;
     }
 

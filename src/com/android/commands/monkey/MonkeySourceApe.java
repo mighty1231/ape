@@ -31,6 +31,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.HashMap;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.TimeoutException;
@@ -50,6 +51,8 @@ import com.android.commands.monkey.ape.model.StartAction;
 import com.android.commands.monkey.ape.tree.GUITreeNode;
 import com.android.commands.monkey.ape.utils.Logger;
 import com.android.commands.monkey.ape.utils.RandomHelper;
+import com.android.commands.monkey.ape.MonkeyServer;
+import com.android.commands.monkey.ape.model.Model.ActionRecord;
 
 import android.accessibilityservice.AccessibilityServiceInfo;
 import android.app.ActivityManager.RunningAppProcessInfo;
@@ -108,6 +111,7 @@ public class MonkeySourceApe implements MonkeyEventSource {
     private File mEventProduceLoggerFile;
     private File mEventConsumeLoggerFile;
     private ImageWriterQueue[] mImageWriters;
+    private MonkeyServer mMonkeyServer;
 
     // Counter
 
@@ -220,6 +224,7 @@ public class MonkeySourceApe implements MonkeyEventSource {
         mEventConsumeLogger = openWriter(mEventConsumeLoggerFile);
 
         mAgent = ApeAgent.createAgent(this);
+        mMonkeyServer = MonkeyServer.getInstance();
         connect();
     }
 
@@ -1161,6 +1166,9 @@ public class MonkeySourceApe implements MonkeyEventSource {
         generateKeyEvent(KeyEvent.KEYCODE_ENTER);
     }
 
+    // Used for communication with Android Runtime
+    private long lastEventPoppedTime = 0;
+
     /**
      * if the queue is empty, we generate events first
      * 
@@ -1172,6 +1180,32 @@ public class MonkeySourceApe implements MonkeyEventSource {
         }
         if (!hasEvent()) {
             try {
+                if (mMonkeyServer != null) {
+                    // wait for idle state!
+                    System.out.println("[APE] MonkeySourceApe Action records...");
+                    List<ActionRecord> actions = mAgent.getActionHistory();
+                    for (ActionRecord ar: actions) {
+                        System.out.println(" - " + ar.modelAction);
+                    }
+                    System.out.println("[APE] MonkeySourceApe -----------------");
+
+                    Action lastAction = mAgent.getLastActionRecordAction();
+                    long waitMillis;
+                    if (lastAction instanceof StartAction) {
+                        waitMillis = 10000;
+                    } else {
+                        waitMillis = 2000;
+                    }
+                    long before = System.currentTimeMillis();
+                    long result = mMonkeyServer.waitForIdle(lastEventPoppedTime, waitMillis);
+                    long after = System.currentTimeMillis();
+
+                    if (result == -1) {
+                        System.out.println("[APE] MonkeySourceApe systime "+after+" last idle time "+result+" for "+(after-before) + "ms");
+                    } else {
+                        System.out.println("[APE] MonkeySourceApe systime "+after+" timeout, waited for "+(after-before) + "ms");
+                    }
+                }
                 generateEvents();
             } catch (StopTestingException e) {
                 clearEvent();
@@ -1181,7 +1215,25 @@ public class MonkeySourceApe implements MonkeyEventSource {
         mEventCount++;
         MonkeyEvent e = popEvent();
         ApeRRFormatter.logConsume(mEventConsumeLogger, e);
+        if (mMonkeyServer != null) {
+            if (!(e instanceof MonkeyThrottleEvent)) {
+                lastEventPoppedTime = System.currentTimeMillis();
+            }
+            System.out.println("[APE] MonkeySourceApe CurrentAction " + mAgent.getLastActionRecordAction());
+            System.out.println("[APE] MonkeySourceApe  - PoppedEvent " + e);
+        }
         return e;
+    }
+
+    public void dumpActions() {
+        if (mMonkeyServer != null) {
+            System.out.println("[APE] MonkeySourceApe Dumping Actions...");
+            List<ActionRecord> actions = mAgent.getActionHistory();
+            for (ActionRecord ar: actions) {
+                System.out.println("[APE] MonkeySourceApe " + ar.clockTimestamp + " - " + ar.modelAction);
+            }
+            System.out.println("[APE] MonkeySourceApe -----------------");
+        }
     }
 
     public Random getRandom() {

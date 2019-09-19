@@ -1196,6 +1196,14 @@ public abstract class StatefulAgent extends ApeAgent implements GraphListener {
         actionCounters.logEvent(action.getType());
     }
 
+    public long getLastActionRecordTimestamp() {
+        return this.model.getLastActionRecordTimestamp();
+    }
+
+    public Action getLastActionRecordAction() {
+        return this.model.getLastActionRecordAction();
+    }
+
     protected void saveActionHistory() {
         File actionHistoryFile = new File(checkOutputDir(), "action-history.log");
         Model.saveActionHistory(actionHistoryFile, getActionHistory());

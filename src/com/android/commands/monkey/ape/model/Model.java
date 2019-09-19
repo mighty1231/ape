@@ -142,6 +142,14 @@ public class Model implements Serializable {
         }
     }
 
+    public long getLastActionRecordTimestamp() {
+        return this.actionHistory.get(this.actionHistory.size()-1).clockTimestamp;
+    }
+
+    public Action getLastActionRecordAction() {
+        return this.actionHistory.get(this.actionHistory.size()-1).modelAction;
+    }
+
     public Model(Graph graph) {
         this.graph = graph;
         if (activityManagerType.equals("activity")) {

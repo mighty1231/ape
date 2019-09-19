@@ -1,11 +1,13 @@
 package com.android.commands.monkey.ape;
 
 import com.android.commands.monkey.ape.model.Action;
+import java.util.List;
 
 import android.content.ComponentName;
 import android.content.Intent;
 import android.graphics.Rect;
 import android.view.accessibility.AccessibilityNodeInfo;
+import com.android.commands.monkey.ape.model.Model.ActionRecord;
 
 public interface Agent {
 
@@ -33,6 +35,12 @@ public interface Agent {
     Rect getCurrentRootNodeBounds();
 
     void appendToActionHistory(long clockTimestamp, Action action);
+
+    List<ActionRecord> getActionHistory();
+
+    long getLastActionRecordTimestamp();
+
+    Action getLastActionRecordAction();
 
     Action updateState(ComponentName topComp, AccessibilityNodeInfo info);
 
