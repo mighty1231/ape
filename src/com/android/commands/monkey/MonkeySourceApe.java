@@ -205,6 +205,8 @@ public class MonkeySourceApe implements MonkeyEventSource {
         this.mEventConsumeLogger.close();
         File visOutput = new File(getOutputDirectory(), "sataTimeline.vis.js");
         ApeRRFormatter.toVisTimeline(mEventProduceLoggerFile, visOutput);
+        stopPackages();
+
     }
 
     public MonkeySourceApe(Random random,
@@ -847,6 +849,25 @@ public class MonkeySourceApe implements MonkeyEventSource {
     }
 
     public void clearPackage(String packageName) {
+        if (mMonkeyServer != null) {
+            String cmd[] = new String[] { "ls", "/data/data/" + packageName + "/mt_data/" };
+            try {
+                String output = Utils.getProcessOutput(cmd);
+                int wait_count = 0;
+                while ((output != "" || output.contains("No such file or directory")) && wait_count < 15) {
+                    Thread.sleep(500);
+                    output = Utils.getProcessOutput(cmd);
+                    wait_count += 1;
+                }
+                if (wait_count == 15) {
+                    System.out.println("[MonkeySourceApe] Failed to wait pulling ...");
+                    System.out.println(output);
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+                System.out.println("[MonkeySourceApe] Failed to wait pulling mt_data due to exception");
+            }
+        }
         AndroidDevice.clearPackage(packageName);
     }
 
@@ -1182,17 +1203,12 @@ public class MonkeySourceApe implements MonkeyEventSource {
             try {
                 if (mMonkeyServer != null) {
                     // wait for idle state!
-                    System.out.println("[APE] MonkeySourceApe Action records...");
-                    List<ActionRecord> actions = mAgent.getActionHistory();
-                    for (ActionRecord ar: actions) {
-                        System.out.println(" - " + ar.modelAction);
-                    }
-                    System.out.println("[APE] MonkeySourceApe -----------------");
+                    dumpActions();
 
                     Action lastAction = mAgent.getLastActionRecordAction();
                     long waitMillis;
                     if (lastAction instanceof StartAction) {
-                        waitMillis = 10000;
+                        waitMillis = 6000;
                     } else {
                         waitMillis = 2000;
                     }
@@ -1201,10 +1217,15 @@ public class MonkeySourceApe implements MonkeyEventSource {
                     long after = System.currentTimeMillis();
 
                     if (result == -1) {
-                        System.out.println("[APE] MonkeySourceApe systime "+after+" last idle time "+result+" for "+(after-before) + "ms");
+                        System.out.println("[APE] MonkeyServer: last action = " + lastAction);
+                        System.out.println("[APE] MonkeyServer: "+after+" last idle time "+result+" for "+(after-before) + "ms");
                     } else {
-                        System.out.println("[APE] MonkeySourceApe systime "+after+" timeout, waited for "+(after-before) + "ms");
+                        System.out.println("[APE] MonkeyServer: last action = " + lastAction);
+                        System.out.println("[APE] MonkeyServer: "+after+" timeout, waited for "+(after-before) + "ms");
                     }
+
+                    /* Waiting for generate events */
+                    sleep(1000);
                 }
                 generateEvents();
             } catch (StopTestingException e) {
