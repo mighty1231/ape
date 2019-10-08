@@ -51,6 +51,7 @@ import com.android.commands.monkey.ape.model.StartAction;
 import com.android.commands.monkey.ape.tree.GUITreeNode;
 import com.android.commands.monkey.ape.utils.Logger;
 import com.android.commands.monkey.ape.utils.RandomHelper;
+import com.android.commands.monkey.ape.utils.Utils;
 import com.android.commands.monkey.ape.MonkeyServer;
 import com.android.commands.monkey.ape.model.Model.ActionRecord;
 
@@ -206,7 +207,6 @@ public class MonkeySourceApe implements MonkeyEventSource {
         File visOutput = new File(getOutputDirectory(), "sataTimeline.vis.js");
         ApeRRFormatter.toVisTimeline(mEventProduceLoggerFile, visOutput);
         stopPackages();
-
     }
 
     public MonkeySourceApe(Random random,
@@ -227,6 +227,7 @@ public class MonkeySourceApe implements MonkeyEventSource {
 
         mAgent = ApeAgent.createAgent(this);
         mMonkeyServer = MonkeyServer.getInstance();
+        eventPoppedTimes = new ArrayList<Long>();
         connect();
     }
 
@@ -1189,6 +1190,7 @@ public class MonkeySourceApe implements MonkeyEventSource {
 
     // Used for communication with Android Runtime
     private long lastEventPoppedTime = 0;
+    private List<Long> eventPoppedTimes;
 
     /**
      * if the queue is empty, we generate events first
@@ -1203,8 +1205,6 @@ public class MonkeySourceApe implements MonkeyEventSource {
             try {
                 if (mMonkeyServer != null) {
                     // wait for idle state!
-                    dumpActions();
-
                     Action lastAction = mAgent.getLastActionRecordAction();
                     long waitMillis;
                     if (lastAction instanceof StartAction) {
@@ -1212,20 +1212,19 @@ public class MonkeySourceApe implements MonkeyEventSource {
                     } else {
                         waitMillis = 2000;
                     }
+                    eventPoppedTimes.add(lastEventPoppedTime);
+                    List<ActionRecord> records = mAgent.getActionHistory();
+                    int actionLength = records.size();
+                    ActionRecord lastRecord = records.get(actionLength - 1);
+                    System.out.println("[APE_MT] ACTION " + lastRecord.modelAction);
+                    System.out.println("[APE_MT] " + lastRecord.clockTimestamp + "/" + lastEventPoppedTime);
+
                     long before = System.currentTimeMillis();
                     long result = mMonkeyServer.waitForIdle(lastEventPoppedTime, waitMillis);
                     long after = System.currentTimeMillis();
 
-                    if (result == -1) {
-                        System.out.println("[APE] MonkeyServer: last action = " + lastAction);
-                        System.out.println("[APE] MonkeyServer: "+after+" last idle time "+result+" for "+(after-before) + "ms");
-                    } else {
-                        System.out.println("[APE] MonkeyServer: last action = " + lastAction);
-                        System.out.println("[APE] MonkeyServer: "+after+" timeout, waited for "+(after-before) + "ms");
-                    }
-
                     /* Waiting for generate events */
-                    sleep(1000);
+                    sleep(800);
                 }
                 generateEvents();
             } catch (StopTestingException e) {
@@ -1240,20 +1239,22 @@ public class MonkeySourceApe implements MonkeyEventSource {
             if (!(e instanceof MonkeyThrottleEvent)) {
                 lastEventPoppedTime = System.currentTimeMillis();
             }
-            System.out.println("[APE] MonkeySourceApe CurrentAction " + mAgent.getLastActionRecordAction());
-            System.out.println("[APE] MonkeySourceApe  - PoppedEvent " + e);
         }
         return e;
     }
 
     public void dumpActions() {
         if (mMonkeyServer != null) {
-            System.out.println("[APE] MonkeySourceApe Dumping Actions...");
+            System.out.println("[APE_MT] Dumping total actions...");
             List<ActionRecord> actions = mAgent.getActionHistory();
             for (ActionRecord ar: actions) {
-                System.out.println("[APE] MonkeySourceApe " + ar.clockTimestamp + " - " + ar.modelAction);
+                System.out.println("[APE_MT] " + ar.clockTimestamp + " - " + ar.modelAction);
             }
-            System.out.println("[APE] MonkeySourceApe -----------------");
+            System.out.println("[APE_MT] ======");
+            for (Long eventPoppedTime: eventPoppedTimes) {
+                System.out.println("[APE_MT] " + eventPoppedTime);
+            }
+            System.out.println("[APE_MT] -----------------");
         }
     }
 

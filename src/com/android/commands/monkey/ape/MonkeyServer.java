@@ -9,7 +9,6 @@ import java.io.IOException;
 
 import java.lang.Runnable;
 import java.lang.RuntimeException;
-import com.android.commands.monkey.ape.AppTerminatedException;
 /**
  * This notices idle status
  *
@@ -67,12 +66,16 @@ public class MonkeyServer implements Runnable {
             time_current = System.currentTimeMillis();
             if (last_time_fetched == -1 /* crash */
                   || fromMillis < last_time_fetched /* caught idle */
-                  || time_current > time_end /* timeout */) {
+                  || time_current >= time_end /* timeout */) {
                 break;
             }
             synchronized (this) {
                 try {
-                    wait(time_end - time_current);
+                    if (time_end - time_current > 10000) {
+                        wait(10000);
+                    } else {
+                        wait(time_end - time_current);
+                    }
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                     Thread.currentThread().interrupt();
@@ -141,7 +144,9 @@ public class MonkeyServer implements Runnable {
                     try {
                         socket.close();
                     } catch (IOException e) {}
-                    last_idle_time = 0;
+                    synchronized (this) {
+                        last_idle_time = -1;
+                    }
                     break;
                 }
 
