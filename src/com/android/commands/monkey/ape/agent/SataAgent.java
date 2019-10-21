@@ -160,7 +160,7 @@ public class SataAgent extends StatefulAgent {
 
     static enum SataEventType {
         TRIVIAL_ACTIVITY,
-        SATURATED_STATE, USE_BUFFER, EARLY_STAGE,
+        SATURATED_STATE, USE_BUFFER, EARLY_STAGE, TARGET_METHOD,
         EPSILON_GREEDY, RANDOM, NULL, BUFFER_LOSS, FILL_BUFFER, BAD_STATE;
     }
 
@@ -311,6 +311,11 @@ public class SataAgent extends StatefulAgent {
             logActionSelected(resolved, SataEventType.EARLY_STAGE);
             return resolved;
         }
+        resolved = selectNewActionWithTargetMethod();
+        if (resolved != null) {
+            logActionSelected(resolved, SataEventType.TARGET_METHOD);
+            return resolved;
+        }
         resolved = selectNewActionEpsilonGreedyRandomly();
         if (resolved != null) {
             logActionSelected(resolved, SataEventType.EPSILON_GREEDY);
@@ -332,6 +337,15 @@ public class SataAgent extends StatefulAgent {
         logEvent(SataEventType.BUFFER_LOSS);
     }
 
+    protected ModelAction selectNewActionWithTargetMethod() {
+        // with probability
+        double v = ape.getRandom().nextDouble();
+        if (v < 0.8) {
+            return newState.pickWithTargetMethod(ape.getRandom());
+        } else {
+           return null;
+        }
+    }
     protected ModelAction selectNewActionEpsilonGreedyRandomly() {
         ModelAction back = newState.getBackAction();
         if (back.isValid()) {

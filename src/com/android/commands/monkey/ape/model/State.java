@@ -103,6 +103,23 @@ public class State extends GraphElement {
         return totalPriority;
     }
 
+    public ModelAction pickWithTargetMethod(Random random) {
+        // no one uses that.... then,
+        List<ModelAction> target_met_actions = new ArrayList<ModelAction>();
+        for (ModelAction action : actions) {
+            if (action.getMetTarget()) {
+                target_met_actions.add(action);
+            }
+        }
+        if (target_met_actions.isEmpty())
+            return null;
+
+        int index = random.nextInt(target_met_actions.size());
+
+        System.out.println("[MET_TARGET] Found mettarget action!");
+        return target_met_actions.get(index);
+    }
+
     public ModelAction greedyPickLeastVisited(ActionFilter filter) {
         ModelAction minAction = null;
         int minValue = Integer.MAX_VALUE;

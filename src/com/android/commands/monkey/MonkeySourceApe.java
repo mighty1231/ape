@@ -1205,27 +1205,36 @@ public class MonkeySourceApe implements MonkeyEventSource {
             try {
                 if (mMonkeyServer != null) {
                     // wait for idle state!
-                    Action lastAction = mAgent.getLastActionRecordAction();
-                    long waitMillis;
-                    if (lastAction instanceof StartAction) {
-                        waitMillis = 6000;
-                    } else {
-                        waitMillis = 2000;
-                    }
-                    eventPoppedTimes.add(lastEventPoppedTime);
                     List<ActionRecord> records = mAgent.getActionHistory();
                     int actionLength = records.size();
-                    ActionRecord lastRecord = records.get(actionLength - 1);
-                    System.out.println("[APE_MT] ACTION " + lastRecord.modelAction);
-                    System.out.println("[APE_MT] " + lastRecord.clockTimestamp + "/" + lastEventPoppedTime);
-
-                    long before = System.currentTimeMillis();
-                    long result = mMonkeyServer.waitForIdle(lastEventPoppedTime, waitMillis);
-                    long after = System.currentTimeMillis();
+                    if (actionLength != 0) {
+                        ActionRecord lastRecord = records.get(actionLength-1);
+                        Action lastAction = lastRecord.modelAction;
+                        long waitMillis;
+                        if (lastAction instanceof StartAction) {
+                            waitMillis = 6000;
+                        } else {
+                            waitMillis = 2000;
+                        }
+                        eventPoppedTimes.add(lastEventPoppedTime);
+                        if (mMonkeyServer.metTargetMethods(lastRecord.clockTimestamp)) {
+                            // ActionRecord
+                            // public final Action modelAction;
+                            // public final GUITreeAction guiAction;
+                            if (lastAction.isModelAction()) {
+                                ((ModelAction) lastAction).setMetTarget(); // @TODO this would be wrong...
+                                System.out.println("[MET_TARGET] Set last action met target");
+                            }
+                        }
+                        System.out.println("[APE_MT] ACTION " + lastAction);
+                        System.out.println("[APE_MT] " + lastRecord.clockTimestamp + "/" + lastEventPoppedTime);
+                        long result = mMonkeyServer.waitForIdle(lastEventPoppedTime, waitMillis);
+                    }
 
                     /* Waiting for generate events */
-                    sleep(800);
+                    sleep(200);
                 }
+                // System.out.println("[ActionRecordCheck] ");
                 generateEvents();
             } catch (StopTestingException e) {
                 clearEvent();

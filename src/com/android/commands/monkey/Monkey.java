@@ -267,6 +267,7 @@ public class Monkey {
 
     /* Communicate with Android Runtime in target app with MonkeyServer */
     private boolean mCommunicateWithART = false;
+    private boolean mTargetMtdWithART = false;
 
     private MonkeyServer mMonkeyServer;
     private Thread mMonkeyServerThread;
@@ -1016,6 +1017,10 @@ public class Monkey {
                     return false;
                 } else if (opt.equals("--mt")) {
                     mCommunicateWithART = true;
+                } else if (opt.equals("--mtdtarget")) {
+                    mTargetMtdWithART = true;
+                    String targetmtdfile = nextOptionData();
+                    Config.set("ape.mt.targetmtdfile", targetmtdfile);
                 } else {
                     System.err.println("** Error: Unknown option: " + opt);
                     showUsage();
@@ -1026,6 +1031,13 @@ public class Monkey {
             MonkeyUtils.getPackageFilter().addValidPackages(validPackages);
         } catch (RuntimeException ex) {
             System.err.println("** Error: " + ex.toString());
+            showUsage();
+            return false;
+        }
+
+        // To activate art with targeting methods
+        if (mTargetMtdWithART && !mCommunicateWithART) {
+            System.err.println("** Error: To target methods, turn on --mt option");
             showUsage();
             return false;
         }
@@ -1638,6 +1650,7 @@ public class Monkey {
         usage.append("              [--bugreport]\n");
         usage.append("              [--periodic-bugreport]\n");
         usage.append("              [--mt]\n");
+        usage.append("              [--mtdtarget MTD_TARGET_FILE]\n");
         usage.append("              COUNT\n");
         System.err.println(usage.toString());
     }

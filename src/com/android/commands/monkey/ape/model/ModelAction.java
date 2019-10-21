@@ -1,4 +1,4 @@
-package com.android.commands.monkey.ape.model;
+    package com.android.commands.monkey.ape.model;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -27,6 +27,7 @@ public class ModelAction extends Action {
     private GUITreeAction resolvedGUITreeAction;
     private float resolvedSaturation;
     private GUITree resolvedTree;
+    private boolean metTarget;
 
     public ModelAction(State state, ActionType type) {
         this(state, null, type);
@@ -36,6 +37,7 @@ public class ModelAction extends Action {
         super(type);
         this.state = state;
         this.target = target;
+        this.metTarget = false;
     }
 
     @Override
@@ -171,6 +173,14 @@ public class ModelAction extends Action {
             return isVisited() ? 1.0F : 0;
         }
         return Math.min(Math.max(0, this.resolvedSaturation), 1.0F);
+    }
+
+    public boolean getMetTarget() {
+        return metTarget;
+    }
+
+    public void setMetTarget() {
+        metTarget = true;
     }
 
     public JSONObject toJSONObject() throws JSONException {
