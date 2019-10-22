@@ -52,8 +52,13 @@ import com.android.commands.monkey.ape.tree.GUITreeNode;
 import com.android.commands.monkey.ape.utils.Logger;
 import com.android.commands.monkey.ape.utils.RandomHelper;
 import com.android.commands.monkey.ape.utils.Utils;
+
 import com.android.commands.monkey.ape.MonkeyServer;
+import com.android.commands.monkey.ape.model.Graph;
+import com.android.commands.monkey.ape.agent.StatefulAgent;
 import com.android.commands.monkey.ape.model.Model.ActionRecord;
+import com.android.commands.monkey.ape.model.StateTransition;
+import com.android.commands.monkey.ape.tree.GUITreeTransition;
 
 import android.accessibilityservice.AccessibilityServiceInfo;
 import android.app.ActivityManager.RunningAppProcessInfo;
@@ -1218,17 +1223,16 @@ public class MonkeySourceApe implements MonkeyEventSource {
                         }
                         eventPoppedTimes.add(lastEventPoppedTime);
                         if (mMonkeyServer.metTargetMethods(lastRecord.clockTimestamp)) {
-                            // ActionRecord
-                            // public final Action modelAction;
-                            // public final GUITreeAction guiAction;
-                            if (lastAction.isModelAction()) {
-                                ((ModelAction) lastAction).setMetTarget(); // @TODO this would be wrong...
-                                System.out.println("[MET_TARGET] Set last action met target");
-                            }
+                            Graph graph = ((StatefulAgent) mAgent).getGraph();
+
+                            // mark last transition
+                            List<GUITreeTransition> treeHistory = graph.getTreeHistory();
+                            GUITreeTransition lastTransition = treeHistory.get(treeHistory.size() - 1);
+                            lastTransition.setMetTargetMethod();
+                            System.out.println("[MET_TARGET] Mark transition " + lastTransition.toString());
                         }
                         System.out.println("[APE_MT] ACTION " + lastAction);
                         System.out.println("[APE_MT] " + lastRecord.clockTimestamp + "/" + lastEventPoppedTime);
-                        long result = mMonkeyServer.waitForIdle(lastEventPoppedTime, waitMillis);
                     }
 
                     /* Waiting for generate events */
@@ -1250,6 +1254,38 @@ public class MonkeySourceApe implements MonkeyEventSource {
             }
         }
         return e;
+    }
+
+    public void TransitionSanityCheck() {
+        // Sanity check for GUITreeTransitions and StateTransitions
+        String SANITAG = "[SANITY_TRANSITION_CHECK] ";
+        Graph graph = ((StatefulAgent) mAgent).getGraph();
+        List<GUITreeTransition> treeHistory = graph.getTreeHistory();
+
+        // Sanity check gt->st->gt
+        Map<StateTransition, Integer> remaining_cnt = new HashMap<StateTransition, Integer>();
+        for (GUITreeTransition transition: treeHistory) {
+            StateTransition st = graph.getStateTransition(transition);
+            List<GUITreeTransition> gtransitions = st.getGUITreeTransitions();
+            if (!gtransitions.contains(transition)) { System.out.println(SANITAG + "gt->st->gt failed"); }
+            if (remaining_cnt.containsKey(st)) {
+                remaining_cnt.put(st, remaining_cnt.get(st) - 1);
+            } else {
+                remaining_cnt.put(st, gtransitions.size() - 1);
+            }
+        }
+        //  Sanity check for st->gt is full mapping
+        int pc = 0;
+        int fc = 0; // pass fail
+        for (StateTransition st: remaining_cnt.keySet()) {
+            if (remaining_cnt.get(st) == 0)
+                pc+=1;
+            else {
+                System.out.println(SANITAG + "full map failed: on " + st.toString());
+                fc+=1;
+            }
+        }
+        System.out.println(SANITAG + "full map test pass " + pc + " fail " + fc);
     }
 
     public void dumpActions() {

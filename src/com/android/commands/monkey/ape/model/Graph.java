@@ -1338,5 +1338,20 @@ public class Graph implements Serializable {
         return results;
     }
 
-
+    public Set<StateTransition> getTransitionSetByName(ModelAction action) {
+        if (!action.requireTarget()) {
+            return Collections.emptySet();
+        }
+        Set<ModelAction> actions = Utils.getFromMapMap(nameToActions, action.getState().getActivity(), action.getTarget());
+        if (actions == null || actions.isEmpty()) {
+            return Collections.emptySet();
+        }
+        Set<StateTransition> results = new HashSet<StateTransition>();
+        for (ModelAction a : actions) {
+            if (a.getType().equals(action.getType())) {
+                results.addAll(getOutStateTransitions(a));
+            }
+        }
+        return results;
+    }
 }

@@ -187,4 +187,18 @@ public class StateTransition extends GraphElement {
     public int getThrottle() {
         return throttle;
     }
+
+    public double metTargetRatio() {
+        int met = 0;
+        int total = 0;
+        for (GUITreeTransition gtransition: treeTransitions) {
+            total += 1;
+            if (gtransition.getMetTargetMethod())
+                met += 1;
+        }
+        if (total == 0)
+            return 0.0;
+
+        return ((double) met) / total;
+    }
 }

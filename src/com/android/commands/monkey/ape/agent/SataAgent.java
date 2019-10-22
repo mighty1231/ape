@@ -341,7 +341,7 @@ public class SataAgent extends StatefulAgent {
         // with probability
         double v = ape.getRandom().nextDouble();
         if (v < 0.8) {
-            return newState.pickWithTargetMethod(ape.getRandom());
+            return newState.pickWithTargetMethod(getGraph(), ape.getRandom());
         } else {
            return null;
         }

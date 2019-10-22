@@ -17,6 +17,7 @@ public class GUITreeTransition implements Serializable {
     private final GUITreeAction action;
 
     private StateTransition stateTransition;
+    private boolean metTargetMethod;
 
     private int throttle;
 
@@ -24,6 +25,7 @@ public class GUITreeTransition implements Serializable {
         this.source = source;
         this.target = target;
         this.action = action;
+        metTargetMethod = false;
     }
 
     public GUITree getSource() {
@@ -48,6 +50,14 @@ public class GUITreeTransition implements Serializable {
 
     public StateTransition getCurrentStateTransition() {
         return this.stateTransition;
+    }
+
+    public void setMetTargetMethod() {
+        metTargetMethod = true;
+    }
+
+    public boolean getMetTargetMethod() {
+        return metTargetMethod;
     }
 
     private static abstract class GUITreeTransitionIterator<V> implements Iterator<V> {

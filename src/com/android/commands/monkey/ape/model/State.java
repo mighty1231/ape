@@ -8,6 +8,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Random;
+import java.util.Set;
 
 import com.android.commands.monkey.ape.ActionFilter;
 import com.android.commands.monkey.ape.agent.StatefulAgent;
@@ -20,6 +21,7 @@ import com.android.commands.monkey.ape.tree.GUITreeNode;
 import com.android.commands.monkey.ape.utils.Logger;
 import com.android.commands.monkey.ape.utils.RandomHelper;
 import com.android.commands.monkey.ape.utils.Utils;
+import com.android.commands.monkey.ape.model.Graph;
 
 import android.content.ComponentName;
 
@@ -103,21 +105,38 @@ public class State extends GraphElement {
         return totalPriority;
     }
 
-    public ModelAction pickWithTargetMethod(Random random) {
+    public ModelAction pickWithTargetMethod(Graph graph, Random random) {
         // no one uses that.... then,
-        List<ModelAction> target_met_actions = new ArrayList<ModelAction>();
+        ModelAction bestAction = null;
+        double maxRatio = 0.0;
+        int actionCount = 0;
         for (ModelAction action : actions) {
-            if (action.getMetTarget()) {
-                target_met_actions.add(action);
+
+            Set<StateTransition> stateTransitions = graph.getTransitionSetByName(action);
+            double sum = 0.0; int cnt = 0;
+            for (StateTransition transition: stateTransitions) {
+                double ratio = transition.metTargetRatio();
+                if (ratio > 0.0) {
+                    sum += ratio; cnt += 1;
+                }
             }
+
+            if (cnt == 0)
+                continue;
+
+            double ratio = sum / cnt;
+            if (maxRatio < ratio) {
+                bestAction = action;
+                maxRatio = ratio;
+            }
+            actionCount += 1;
         }
-        if (target_met_actions.isEmpty())
+
+        if (actionCount == 0)
             return null;
 
-        int index = random.nextInt(target_met_actions.size());
-
-        System.out.println("[MET_TARGET] Found mettarget action!");
-        return target_met_actions.get(index);
+        System.out.println("[MET_TARGET] Found metTargetMethod action " + bestAction +  " among size = " + actionCount);
+        return bestAction;
     }
 
     public ModelAction greedyPickLeastVisited(ActionFilter filter) {
