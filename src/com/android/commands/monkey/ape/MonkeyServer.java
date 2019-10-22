@@ -69,10 +69,13 @@ public class MonkeyServer implements Runnable {
     // Store time for last targeting method met
     private long last_target_time; // must be protected with lock
 
+    private int connection_cnt;
+
     private MonkeyServer() throws IOException {
         lss = new LocalServerSocket(SOCK_ADDRESS);
         last_idle_time = 0;
         last_target_time = 0;
+        connection_cnt = 0;
         buffer = new byte[8];
         parseTargetMtds();
     }
@@ -194,6 +197,8 @@ public class MonkeyServer implements Runnable {
                 socket = lss.accept();
                 is = socket.getInputStream();
                 os = socket.getOutputStream();
+                connection_cnt += 1;
+                System.out.println("[MonkeyServer] New connection #" + connection_cnt + "  established");
             } catch (IOException e) {
                 throw new RuntimeException("accept");
             }
@@ -225,6 +230,7 @@ public class MonkeyServer implements Runnable {
                 try {
                     id = readInt32();
                 } catch (IOException e) {
+                    System.out.println("[MonkeyServer] IOException " + e.getMessage());
                     System.out.println("[MonkeyServer] The target seems to be terminated");
                     try {
                         socket.close();
@@ -267,6 +273,7 @@ public class MonkeyServer implements Runnable {
                             throw new RuntimeException("Unknown id");
                     }
                 } catch (IOException e) {
+                    System.out.println("[MonkeyServer] IOException " + e.getMessage());
                     System.out.println("[MonkeyServer] The target seems to be terminated");
                     try {
                         socket.close();

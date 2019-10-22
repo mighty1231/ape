@@ -1222,11 +1222,11 @@ public class MonkeySourceApe implements MonkeyEventSource {
                             waitMillis = 2000;
                         }
                         eventPoppedTimes.add(lastEventPoppedTime);
-                        if (mMonkeyServer.metTargetMethods(lastRecord.clockTimestamp)) {
-                            Graph graph = ((StatefulAgent) mAgent).getGraph();
+                        Graph graph = ((StatefulAgent) mAgent).getGraph();
+                        List<GUITreeTransition> treeHistory = graph.getTreeHistory();
+                        if (treeHistory.size() > 0 && mMonkeyServer.metTargetMethods(lastRecord.clockTimestamp)) {
 
                             // mark last transition
-                            List<GUITreeTransition> treeHistory = graph.getTreeHistory();
                             GUITreeTransition lastTransition = treeHistory.get(treeHistory.size() - 1);
                             lastTransition.setMetTargetMethod();
                             System.out.println("[APE_MT] Met Target Mark transition " + lastTransition.toString());
