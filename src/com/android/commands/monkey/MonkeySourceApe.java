@@ -1229,7 +1229,7 @@ public class MonkeySourceApe implements MonkeyEventSource {
                             List<GUITreeTransition> treeHistory = graph.getTreeHistory();
                             GUITreeTransition lastTransition = treeHistory.get(treeHistory.size() - 1);
                             lastTransition.setMetTargetMethod();
-                            System.out.println("[MET_TARGET] Mark transition " + lastTransition.toString());
+                            System.out.println("[APE_MT] Met Target Mark transition " + lastTransition.toString());
                         }
                         System.out.println("[APE_MT] ACTION " + lastAction);
                         System.out.println("[APE_MT] " + lastRecord.clockTimestamp + "/" + lastEventPoppedTime);
@@ -1238,7 +1238,6 @@ public class MonkeySourceApe implements MonkeyEventSource {
                     /* Waiting for generate events */
                     sleep(200);
                 }
-                // System.out.println("[ActionRecordCheck] ");
                 generateEvents();
             } catch (StopTestingException e) {
                 clearEvent();

@@ -111,6 +111,7 @@ public class MonkeyServer implements Runnable {
     public void alertCrash() {
         synchronized (this) {
             last_idle_time = -1; // crashed
+            last_target_time = -1;
             notifyAll();
         }
     }
@@ -230,6 +231,7 @@ public class MonkeyServer implements Runnable {
                     } catch (IOException e2) {}
                     synchronized (this) {
                         last_idle_time = -1;
+                        last_target_time = -1;
                     }
                     break;
                 }
@@ -246,6 +248,7 @@ public class MonkeyServer implements Runnable {
                                 System.out.println("[MonkeyServer] wrong method id received: " + Integer.toHexString(method_id));
                                 throw new RuntimeException("Unknown method id");
                             }
+                            System.out.println("[MonkeyServer] Method invocation observed: method_id " + method_id);
                             synchronized (this) {
                                 last_target_time = System.currentTimeMillis();
                             }
@@ -270,6 +273,7 @@ public class MonkeyServer implements Runnable {
                     } catch (IOException e2) {}
                     synchronized (this) {
                         last_idle_time = -1;
+                        last_target_time = -1;
                     }
                     break;
                 }
