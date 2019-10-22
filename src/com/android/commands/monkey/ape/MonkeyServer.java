@@ -13,6 +13,7 @@ import java.lang.RuntimeException;
 import java.util.ArrayList;
 import java.util.List;
 import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.FileReader;
 
 /**
@@ -24,14 +25,35 @@ public class MonkeyServer implements Runnable {
         public String mtdname;
         public String signature;
         public int mtdFlag;
+        public int size;
+        public byte buffer[];
 
-        public TargetMethod (String clsname, String mtdname, String signature, int mtdFlag) {
+        public TargetMethod (String clsname, String mtdname, String signature, int mtdFlag) throws IOException {
             this.clsname = clsname;
             this.mtdname = mtdname;
             this.signature = signature;
             this.mtdFlag = mtdFlag;
             if ((mtdFlag & (~(kMtdFlagEntered | kMtdFlagExited | kMtdFlagUnroll))) != 0)
                 throw new RuntimeException("flag should be masked with 7");
+
+            // fill buffer
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            MonkeyServer.writeInt32(out, clsname.length());
+            out.write(clsname.getBytes("UTF-8"));
+            MonkeyServer.writeInt32(out, mtdname.length());
+            out.write(mtdname.getBytes("UTF-8"));
+            MonkeyServer.writeInt32(out, signature.length());
+            out.write(signature.getBytes("UTF-8"));
+            MonkeyServer.writeInt32(out, mtdFlag);
+            buffer = out.toByteArray();
+        }
+
+        public int getSize() {
+            return size;
+        }
+
+        public void writeTo(OutputStream os) throws IOException {
+            os.write(buffer);
         }
     }
 
@@ -58,6 +80,8 @@ public class MonkeyServer implements Runnable {
 
     // buffer to read 8~12 bytes
     private byte[] buffer;
+
+    private byte[] headerbuffer;
 
     // Store method targets
     private List<TargetMethod> target_methods;
@@ -106,7 +130,11 @@ public class MonkeyServer implements Runnable {
             String[] tokens = line.split("\t");
             if (tokens.length != 4)
                 throw new RuntimeException("Failed to parse line " + line + tokens.length);
-            target_methods.add(new TargetMethod(tokens[0], tokens[1], tokens[2], Integer.parseInt(tokens[3])));
+            try {
+                target_methods.add(new TargetMethod(tokens[0], tokens[1], tokens[2], Integer.parseInt(tokens[3])));
+            } catch (IOException e) {
+                throw new RuntimeException("Parsing targeting methods " + e.getMessage());
+            }
         }
         System.out.println("[MonkeyServer] Total " + target_methods.size() + " methods are targeted");
     }
@@ -161,24 +189,25 @@ public class MonkeyServer implements Runnable {
         os.write((n >> 24) & 0xff);
     }
 
+    public static void writeInt32(OutputStream os, int n) throws IOException {
+        os.write(n & 0xff);
+        os.write((n >> 8) & 0xff);
+        os.write((n >> 16) & 0xff);
+        os.write((n >> 24) & 0xff);
+    }
+
     public int readInt32() throws IOException {
         // Read idle time!
         int byte_written = 0;
         int cur_written;
         while (byte_written < 4) {
-            try {
-                cur_written = is.read(buffer, byte_written, 4-byte_written);
-            } catch (IOException e) {
-                cur_written = -1;
-            }
+            cur_written = is.read(buffer, byte_written, 4-byte_written);
             if (cur_written == -1) {
-                byte_written = -1;
-                break;
+                throw new IOException("readint32");
             }
 
-            byte_written += cur_written;        }
-        if (byte_written == -1)
-            throw new IOException("readint32");
+            byte_written += cur_written;
+        }
 
         int ret = ((buffer[0] & 0xFF)  | ((buffer[1] & 0xFF) << 8) | ((buffer[2] & 0xFF) << 16) | ((buffer[3] & 0xFF) << 24));
         return ret;
@@ -212,14 +241,7 @@ public class MonkeyServer implements Runnable {
                 }
                 writeInt32(target_methods.size()); // size could be zero
                 for (TargetMethod target : target_methods) {
-                    // write string
-                    writeInt32(target.clsname.length());
-                    os.write(target.clsname.getBytes("UTF-8"));
-                    writeInt32(target.mtdname.length());
-                    os.write(target.mtdname.getBytes("UTF-8"));
-                    writeInt32(target.signature.length());
-                    os.write(target.signature.getBytes("UTF-8"));
-                    writeInt32(target.mtdFlag);
+                    target.writeTo(os);
                 }
             } catch (IOException e) {
                 throw new RuntimeException("write methods");

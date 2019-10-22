@@ -1229,15 +1229,33 @@ public class MonkeySourceApe implements MonkeyEventSource {
                             // mark last transition
                             GUITreeTransition lastTransition = treeHistory.get(treeHistory.size() - 1);
                             lastTransition.setMetTargetMethod();
-                            System.out.println("[APE_MT] Met Target Mark transition " + lastTransition.toString());
+                            System.out.println("[APE_MT] Met Target Mark transition " + lastTransition.getCurrentStateTransition().toString());
                         }
                         System.out.println("[APE_MT] ACTION " + lastAction);
                         System.out.println("[APE_MT] " + lastRecord.clockTimestamp + "/" + lastEventPoppedTime);
+                        long result = mMonkeyServer.waitForIdle(lastEventPoppedTime, waitMillis);
                     }
 
                     /* Waiting for generate events */
                     sleep(200);
                 }
+                // print records / tree history
+                List<ActionRecord> records = mAgent.getActionHistory();
+                List<GUITreeTransition> treeHistory = ((StatefulAgent) mAgent).getGraph().getTreeHistory();
+
+                // print last 5 items
+                int min_id;
+                min_id = Math.max(records.size()-5, 0);
+                System.out.println("[APE_MT] Action records " + records.size() + " treeHistory " + treeHistory.size());
+                for (int i=min_id; i<records.size(); i++) {
+                    System.out.println("[APE_MT] ActionRecord #" + i + " " + records.get(i).modelAction.toString());
+                }
+                min_id = Math.max(treeHistory.size()-5, 0);
+                for (int i=min_id; i<treeHistory.size(); i++) {
+                    System.out.println("[APE_MT] TreeHistory #" + i + " " + treeHistory.get(i).getCurrentStateTransition().toString());
+                }
+
+                // original code from APE
                 generateEvents();
             } catch (StopTestingException e) {
                 clearEvent();
