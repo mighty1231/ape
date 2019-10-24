@@ -240,6 +240,7 @@ public class MonkeyServer implements Runnable {
                     throw new RuntimeException("handshake");
                 }
                 writeInt32(target_methods.size()); // size could be zero
+                System.out.println("[MonkeyServer] Handshake success");
                 for (TargetMethod target : target_methods) {
                     target.writeTo(os);
                 }
@@ -252,7 +253,7 @@ public class MonkeyServer implements Runnable {
                 try {
                     id = readInt32();
                 } catch (IOException e) {
-                    System.out.println("[MonkeyServer] IOException " + e.getMessage());
+                    System.out.println("[MonkeyServer] IOException on read id " + e.getMessage());
                     System.out.println("[MonkeyServer] The target seems to be terminated");
                     try {
                         socket.close();
@@ -295,7 +296,7 @@ public class MonkeyServer implements Runnable {
                             throw new RuntimeException("Unknown id");
                     }
                 } catch (IOException e) {
-                    System.out.println("[MonkeyServer] IOException " + e.getMessage());
+                    System.out.println("[MonkeyServer] IOException " + e.getMessage() + " on id " + id);
                     System.out.println("[MonkeyServer] The target seems to be terminated");
                     try {
                         socket.close();

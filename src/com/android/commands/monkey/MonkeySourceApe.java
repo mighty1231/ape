@@ -1208,6 +1208,7 @@ public class MonkeySourceApe implements MonkeyEventSource {
         }
         if (!hasEvent()) {
             try {
+                boolean metTarget = false;
                 if (mMonkeyServer != null) {
                     // wait for idle state!
                     List<ActionRecord> records = mAgent.getActionHistory();
@@ -1217,46 +1218,38 @@ public class MonkeySourceApe implements MonkeyEventSource {
                         Action lastAction = lastRecord.modelAction;
                         long waitMillis;
                         if (lastAction instanceof StartAction) {
-                            waitMillis = 6000;
+                            waitMillis = 3000;
                         } else {
-                            waitMillis = 2000;
+                            waitMillis = 1000;
                         }
+                        long result = mMonkeyServer.waitForIdle(lastEventPoppedTime, waitMillis);
                         eventPoppedTimes.add(lastEventPoppedTime);
-                        Graph graph = ((StatefulAgent) mAgent).getGraph();
-                        List<GUITreeTransition> treeHistory = graph.getTreeHistory();
-                        if (treeHistory.size() > 0 && mMonkeyServer.metTargetMethods(lastRecord.clockTimestamp)) {
 
-                            // mark last transition
-                            GUITreeTransition lastTransition = treeHistory.get(treeHistory.size() - 1);
-                            lastTransition.setMetTargetMethod();
-                            System.out.println("[APE_MT] Met Target Mark transition " + lastTransition.getCurrentStateTransition().toString());
+                        // metTarget?
+                        if (!(lastAction instanceof FuzzAction) && mMonkeyServer.metTargetMethods(lastRecord.clockTimestamp)) {
+                            System.out.println("[APE_MT] MET_TARGET - Related action to marked is " + lastAction.toString());
+                            metTarget = true;
                         }
+                        Graph graph = ((StatefulAgent) mAgent).getGraph();
                         System.out.println("[APE_MT] ACTION " + lastAction);
                         System.out.println("[APE_MT] " + lastRecord.clockTimestamp + "/" + lastEventPoppedTime);
-                        long result = mMonkeyServer.waitForIdle(lastEventPoppedTime, waitMillis);
                     }
 
                     /* Waiting for generate events */
                     sleep(200);
                 }
-                // print records / tree history
-                List<ActionRecord> records = mAgent.getActionHistory();
-                List<GUITreeTransition> treeHistory = ((StatefulAgent) mAgent).getGraph().getTreeHistory();
-
-                // print last 5 items
-                int min_id;
-                min_id = Math.max(records.size()-5, 0);
-                System.out.println("[APE_MT] Action records " + records.size() + " treeHistory " + treeHistory.size());
-                for (int i=min_id; i<records.size(); i++) {
-                    System.out.println("[APE_MT] ActionRecord #" + i + " " + records.get(i).modelAction.toString());
-                }
-                min_id = Math.max(treeHistory.size()-5, 0);
-                for (int i=min_id; i<treeHistory.size(); i++) {
-                    System.out.println("[APE_MT] TreeHistory #" + i + " " + treeHistory.get(i).getCurrentStateTransition().toString());
-                }
 
                 // original code from APE
+                // It updates transitions and put new action to ActionRecord list
                 generateEvents();
+
+                // Mark newly created GUITreeTransition
+                if (metTarget) {
+                    List<GUITreeTransition> treeHistory = ((StatefulAgent) mAgent).getGraph().getTreeHistory();
+                    GUITreeTransition lastTransition = treeHistory.get(treeHistory.size() - 1);
+                    lastTransition.setMetTargetMethod();
+                    System.out.println("[APE_MT] MET_TARGET - Mark transition " + lastTransition.getCurrentStateTransition().toString());
+                }
             } catch (StopTestingException e) {
                 clearEvent();
                 return null;
