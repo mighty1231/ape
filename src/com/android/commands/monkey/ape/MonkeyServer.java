@@ -275,7 +275,7 @@ public class MonkeyServer implements Runnable {
                             int method_id = readInt32(); // unused now
                             if (method_id < 0 || method_id >= target_methods.size()) {
                                 System.out.println("[MonkeyServer] wrong method id received: " + Integer.toHexString(method_id));
-                                throw new RuntimeException("Unknown method id");
+                                throw new RuntimeException("Unknown method id " + method_id);
                             }
                             System.out.println("[MonkeyServer] Method invocation observed: method_id " + method_id);
                             synchronized (this) {
