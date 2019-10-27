@@ -98,27 +98,31 @@ public class MonkeyServer implements Runnable {
 
     // Store time for last targeting method met
     private long last_target_time; // must be protected with lock
+    private int last_method_id; // must be protected with lock
 
     private int connection_cnt;
 
-    private MonkeyServer(MonkeySourceApe ape) throws IOException {
+    private MonkeyServer() throws IOException {
         lss = new LocalServerSocket(SOCK_ADDRESS);
         last_idle_time = 0;
         last_target_time = 0;
         connection_cnt = 0;
+        last_method_id = -1;
         buffer = new byte[8];
 
+        parseTargetMtds();
+    }
+
+    public void registerAPE(MonkeySourceApe ape) throws IOException {
         // log file
         File dir = ape.getOutputDirectory();
         if (!dir.exists()) { dir.mkdirs(); }
         serverlog_pw = new PrintWriter(new File(dir, "monkeyserver.log"));
         serverlog_pw.println("MonkeyServer log");
-
-        parseTargetMtds();
     }
 
-    public static void makeInstance(MonkeySourceApe ape) throws IOException {
-        instance = new MonkeyServer(ape);
+    public static void makeInstance() throws IOException {
+        instance = new MonkeyServer();
     }
 
     public static MonkeyServer getInstance() {
@@ -149,7 +153,7 @@ public class MonkeyServer implements Runnable {
                 throw new RuntimeException("Parsing targeting methods " + e.getMessage());
             }
         }
-        serverlog_pw.println("Total " + target_methods.size() + " methods are targeted");
+        System.out.println("[MonkeyServer] Total " + target_methods.size() + " methods are targeted");
     }
 
     public void alertCrash() {
@@ -171,6 +175,7 @@ public class MonkeyServer implements Runnable {
             synchronized (this) {
                 last_time_fetched = last_idle_time;
             }
+            System.out.println("[MonkeyServer] idle fetch " + last_time_fetched);
             time_current = System.currentTimeMillis();
             if (last_time_fetched == -1 /* crash */
                   || fromMillis < last_time_fetched /* caught idle */
@@ -228,7 +233,10 @@ public class MonkeyServer implements Runnable {
 
     // called from thread with MonkeySourceApe
     public synchronized boolean metTargetMethods(long timestamp) {
-        return last_target_time > timestamp;
+        boolean ret = last_target_time > timestamp;
+        if (ret)
+            System.out.println("[MonkeyServer] method_id " + last_method_id + " timestamp " + last_target_time);
+        return ret;
     }
 
     @Override
@@ -240,7 +248,7 @@ public class MonkeyServer implements Runnable {
                 is = socket.getInputStream();
                 os = socket.getOutputStream();
                 connection_cnt += 1;
-                serverlog_pw.println("New connection #" + connection_cnt + "  established");
+                serverlog_pw.println(String.format("%d New connection #%d established", System.currentTimeMillis(), connection_cnt));
             } catch (IOException e) {
                 throw new RuntimeException("accept");
             }
@@ -249,11 +257,11 @@ public class MonkeyServer implements Runnable {
                 writeInt32(kHandShake);
                 int hsval = readInt32();
                 if (hsval != kHandShake) {
-                    serverlog_pw.println("Handshake failed " + Integer.toHexString(hsval));
+                    serverlog_pw.println(String.format("%d Handshake failed %d", System.currentTimeMillis(), Integer.toHexString(hsval)));
                     throw new RuntimeException("handshake");
                 }
                 writeInt32(target_methods.size()); // size could be zero
-                serverlog_pw.println("Handshake success");
+                serverlog_pw.println(String.format("%d Handshake success", System.currentTimeMillis()));
                 for (TargetMethod target : target_methods) {
                     target.writeTo(os);
                 }
@@ -266,8 +274,7 @@ public class MonkeyServer implements Runnable {
                 try {
                     id = readInt32();
                 } catch (IOException e) {
-                    serverlog_pw.println("IOException on read id " + e.getMessage());
-                    serverlog_pw.println("The target seems to be terminated");
+                    serverlog_pw.println(String.format("%d IOException on read id %s", System.currentTimeMillis(), e.getMessage()));
                     try {
                         socket.close();
                     } catch (IOException e2) {}
@@ -288,13 +295,13 @@ public class MonkeyServer implements Runnable {
                             // @TODO failing on readInt32 should cause closing of original socket and starting new loop
                             int method_id = readInt32(); // unused now
                             if (method_id < 0 || method_id >= target_methods.size()) {
-                                serverlog_pw.println("wrong method id received: " + Integer.toHexString(method_id));
+                                serverlog_pw.println(String.format("%d Wrong method id received: %x", System.currentTimeMillis(), method_id));
                                 throw new RuntimeException("Unknown method id " + method_id);
                             }
                             tmp = (long)readInt32() + ((long)readInt32() << 32);
-                            serverlog_pw.println("method_id " + method_id + " timestamp " + tmp);
                             synchronized (this) {
                                 last_target_time = tmp;
+                                last_method_id = method_id;
                             }
                             break;
                         case kIdle:
@@ -302,17 +309,15 @@ public class MonkeyServer implements Runnable {
                             tmp = (long)readInt32() + ((long)readInt32() << 32);
                             synchronized (this) {
                                 last_idle_time = tmp;
-                                serverlog_pw.println("idle " +last_idle_time);
                                 notify();
                             }
                             break;
                         default:
-                            serverlog_pw.println("Unknown id received, " + Integer.toHexString(id));
+                            serverlog_pw.println(String.format("%d Unknown id received %x", System.currentTimeMillis(), id));
                             throw new RuntimeException("Unknown id");
                     }
                 } catch (IOException e) {
-                    serverlog_pw.println("IOException " + e.getMessage() + " on id " + id);
-                    serverlog_pw.println("The target seems to be terminated");
+                    serverlog_pw.println(String.format("%d IOException %s on read id %d", System.currentTimeMillis(), e.getMessage(), id));
                     try {
                         socket.close();
                     } catch (IOException e2) {}

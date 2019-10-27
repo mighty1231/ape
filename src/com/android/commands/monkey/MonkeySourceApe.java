@@ -1243,9 +1243,8 @@ public class MonkeySourceApe implements MonkeyEventSource {
                 if (mMonkeyServer != null) {
                     List<ActionRecord> records = mAgent.getActionHistory();
                     int actionLength = records.size();
-                    if (actionLength != prev_length + 1 ||
-                            !(actionLength == prev_length + 2
-                                && (records.get(actionLength-1).modelAction) instanceof FuzzAction)) {
+                    if (actionLength != prev_length + 1
+                            && !(actionLength == prev_length + 2 && (records.get(actionLength-1).modelAction) instanceof FuzzAction)) {
                         throw new RuntimeException("prev " + prev_length + " nxt " + actionLength);
                     }
                     if (actionLength > 1) {
