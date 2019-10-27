@@ -44,6 +44,7 @@ import com.android.commands.monkey.ape.naming.NamingManager;
 import com.android.commands.monkey.ape.utils.Logger;
 import com.android.commands.monkey.ape.utils.StringCache;
 import com.android.commands.monkey.ape.utils.Utils;
+import com.android.commands.monkey.ape.utils.StringEscapeUtils;
 
 import android.content.ComponentName;
 import android.graphics.Bitmap;
@@ -260,13 +261,13 @@ public class GUITreeBuilder {
         if (nodeBounds.contains(childrenBounds)) {
             if (doPatchingChildren(node)) {
                 Logger.iprintln("Patching this node: " + node.getClassName() + "@" + node.getResourceID() + "@"
-                        + node.getText());
+                        + StringEscapeUtils.escapeJava(node.getText()));
                 nodeIt = node.getChildren();
                 while (nodeIt.hasNext()) {
                     GUITreeNode child = nodeIt.next();
                     if (!child.isClickable()) {
                         Logger.iprintln("Patching child node: " + child.getClassName() + "@" + child.getResourceID()
-                        + "@" + child.getText());
+                        + "@" + StringEscapeUtils.escapeJava(child.getText()));
                         child.setClickable(true);
                         if (node.getChildCount() == 1) {
                             if (node.getIndex() != child.getIndex()) {

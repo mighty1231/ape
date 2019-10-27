@@ -748,9 +748,14 @@ public class Monkey {
             }
             mCount = Integer.MAX_VALUE;
         } else if (mUseApe) {
+            AndroidDevice.initializeAndroidDevice(mAm, mWm, mPm);
+            AndroidDevice.checkInteractive();
+            mEventSource = new MonkeySourceApe(mRandom, mMainApps, mThrottle,
+                    mRandomizeThrottle, mOutputDirectory);
+            mEventSource.setVerbose(mVerbose);
             if (mCommunicateWithART) {
                 try {
-                    MonkeyServer.makeInstance();
+                    MonkeyServer.makeInstance((MonkeySourceApe) mEventSource);
                 } catch (IOException e) {
                     throw new RuntimeException("Failed to initialize MonkeyServer");
                 }
@@ -758,11 +763,6 @@ public class Monkey {
                 mMonkeyServerThread = new Thread(mMonkeyServer);
                 mMonkeyServerThread.start();
             }
-            AndroidDevice.initializeAndroidDevice(mAm, mWm, mPm);
-            AndroidDevice.checkInteractive();
-            mEventSource = new MonkeySourceApe(mRandom, mMainApps, mThrottle,
-                    mRandomizeThrottle, mOutputDirectory);
-            mEventSource.setVerbose(mVerbose);
             if (mApeCleanApp) {
                 for (ComponentName cn : mMainApps) {
                     String packageName = cn.getPackageName();

@@ -10,6 +10,7 @@ import com.android.commands.monkey.ape.tree.GUITree;
 import com.android.commands.monkey.ape.tree.GUITreeAction;
 import com.android.commands.monkey.ape.tree.GUITreeNode;
 import com.android.commands.monkey.ape.utils.Config;
+import com.android.commands.monkey.ape.utils.StringEscapeUtils;
 
 import android.graphics.Rect;
 
@@ -108,7 +109,7 @@ public class ModelAction extends Action {
         Rect bounds = resolvedNode.getBoundsInScreen();
         return String.format("%s[S=%f][RN=%d][%d,%d,%d,%d][%s]", super.resolvedInfo(), resolvedSaturation,
                 resolvedNodes.length, bounds.left, bounds.top, bounds.right, bounds.bottom,
-                resolvedNode.getText());
+                StringEscapeUtils.escapeJava(resolvedNode.getText()));
     }
 
     public String toFullString() {

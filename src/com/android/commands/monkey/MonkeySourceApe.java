@@ -1208,11 +1208,12 @@ public class MonkeySourceApe implements MonkeyEventSource {
         }
         if (!hasEvent()) {
             try {
-                boolean metTarget = false;
+                int prev_length = 0;
                 if (mMonkeyServer != null) {
                     // wait for idle state!
                     List<ActionRecord> records = mAgent.getActionHistory();
                     int actionLength = records.size();
+                    prev_length = actionLength;
                     if (actionLength != 0) {
                         ActionRecord lastRecord = records.get(actionLength-1);
                         Action lastAction = lastRecord.modelAction;
@@ -1225,14 +1226,9 @@ public class MonkeySourceApe implements MonkeyEventSource {
                         long result = mMonkeyServer.waitForIdle(lastEventPoppedTime, waitMillis);
                         eventPoppedTimes.add(lastEventPoppedTime);
 
-                        // metTarget?
-                        if (!(lastAction instanceof FuzzAction) && mMonkeyServer.metTargetMethods(lastRecord.clockTimestamp)) {
-                            System.out.println("[APE_MT] MET_TARGET - Related action to marked is " + lastAction.toString());
-                            metTarget = true;
-                        }
                         Graph graph = ((StatefulAgent) mAgent).getGraph();
-                        System.out.println("[APE_MT] ACTION " + lastAction);
-                        System.out.println("[APE_MT] " + lastRecord.clockTimestamp + "/" + lastEventPoppedTime);
+                        System.out.println("[MonkeySourceApe] ACTION " + lastAction);
+                        System.out.println("[MonkeySourceApe] " + lastRecord.clockTimestamp + "/" + lastEventPoppedTime);
                     }
 
                     /* Waiting for generate events */
@@ -1244,11 +1240,31 @@ public class MonkeySourceApe implements MonkeyEventSource {
                 generateEvents();
 
                 // Mark newly created GUITreeTransition
-                if (metTarget) {
-                    List<GUITreeTransition> treeHistory = ((StatefulAgent) mAgent).getGraph().getTreeHistory();
-                    GUITreeTransition lastTransition = treeHistory.get(treeHistory.size() - 1);
-                    lastTransition.setMetTargetMethod();
-                    System.out.println("[APE_MT] MET_TARGET - Mark transition " + lastTransition.getCurrentStateTransition().toString());
+                if (mMonkeyServer != null) {
+                    List<ActionRecord> records = mAgent.getActionHistory();
+                    int actionLength = records.size();
+                    if (actionLength != prev_length + 1 ||
+                            !(actionLength == prev_length + 2
+                                && (records.get(actionLength-1).modelAction) instanceof FuzzAction)) {
+                        throw new RuntimeException("prev " + prev_length + " nxt " + actionLength);
+                    }
+                    if (actionLength > 1) {
+                        int last_idx;
+                        if ((records.get(actionLength-1).modelAction) instanceof FuzzAction) {
+                            last_idx = actionLength-3;
+                        } else {
+                            last_idx = actionLength-2;
+                        }
+                        ActionRecord lastRecord = records.get(last_idx);
+                        Action lastAction = lastRecord.modelAction;
+                        if (!(lastAction instanceof FuzzAction) && mMonkeyServer.metTargetMethods(lastRecord.clockTimestamp)) {
+                            List<GUITreeTransition> treeHistory = ((StatefulAgent) mAgent).getGraph().getTreeHistory();
+                            GUITreeTransition lastTransition = treeHistory.get(treeHistory.size() - 1);
+                            lastTransition.setMetTargetMethod();
+                            System.out.println("[MonkeySourceApe] MET_TARGET action " + lastAction.toString());
+                            System.out.println("[MonkeySourceApe] MET_TARGET transition " + lastTransition.getCurrentStateTransition().toString());
+                        }
+                    }
                 }
             } catch (StopTestingException e) {
                 clearEvent();

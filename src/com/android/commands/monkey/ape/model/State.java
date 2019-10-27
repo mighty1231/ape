@@ -135,7 +135,7 @@ public class State extends GraphElement {
         if (actionCount == 0)
             return null;
 
-        System.out.println("[MET_TARGET] Found metTargetMethod action " + bestAction +  " among size = " + actionCount);
+        System.out.println("[MET_TARGET] Found metTargetMethod action " + bestAction +  " ratio " + maxRatio + " among size = " + actionCount);
         return bestAction;
     }
 
