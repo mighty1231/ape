@@ -78,7 +78,7 @@ public class Config {
     public static final double fuzzingRate = Config.getDouble("ape.fuzzingRate", 0.02D);
     public static final long refectchInfoWaitingInterval = Config.getLong("ape.refectchInfoWaitingInterval", 50);
     public static final int refectchInfoCount = Config.getInteger("ape.refectchInfoCount", 4);
-    public static final boolean doFuzzing = Config.getBoolean("ape.doFuzzing", true);
+    public static final boolean doFuzzing = Config.getBoolean("ape.doFuzzing", false);
 
     public static final boolean ignoreEmpty = Config.getBoolean("ape.ignoreEmpty", true);
     public static final boolean ignoreOutOfBounds = Config.getBoolean("ape.ignoreOutOfBounds", true);
