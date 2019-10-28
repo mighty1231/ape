@@ -212,6 +212,9 @@ public class MonkeySourceApe implements MonkeyEventSource {
         File visOutput = new File(getOutputDirectory(), "sataTimeline.vis.js");
         ApeRRFormatter.toVisTimeline(mEventProduceLoggerFile, visOutput);
         stopPackages();
+        if (mMonkeyServer != null) {
+            mMonkeyServer.close();
+        }
     }
 
     public MonkeySourceApe(Random random,
@@ -793,8 +796,16 @@ public class MonkeySourceApe implements MonkeyEventSource {
                 } else {
                     // get differences! @TODO to watch diff transitions
                     System.out.println(String.format("[APE_MT] diff of records %d~%d", llast_num_records, last_num_records));
+                    boolean canStartApp = false;
                     for (int i=llast_num_records; i<last_num_records; i++) {
-                        System.out.println(String.format("[APE_MT] rec: %d %s", i, records.get(i).modelAction.toString()));
+                        Action executed_action = records.get(i).modelAction;
+                        System.out.println(String.format("[APE_MT] rec: %d %s", i, executed_action.toString()));
+                        if (executed_action.canStartApp())
+                            canStartApp = true;
+                    }
+                    if (canStartApp) {
+                        System.out.println("[APE_MT] Wait for monkeyserver accept");
+                        mMonkeyServer.waitFirstConnection();
                     }
                     System.out.println(String.format("[APE_MT] diff of transitions %d~%d", last_num_transitions, num_transitions));
                     for (int i=last_num_transitions; i<num_transitions; i++) {

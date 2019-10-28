@@ -758,7 +758,6 @@ public class Monkey {
                     throw new RuntimeException("Failed to initialize MonkeyServer");
                 }
                 mMonkeyServer = MonkeyServer.getInstance();
-                mMonkeyServerThread = new Thread(mMonkeyServer);
             }
             mEventSource = new MonkeySourceApe(mRandom, mMainApps, mThrottle,
                     mRandomizeThrottle, mOutputDirectory);
@@ -769,7 +768,7 @@ public class Monkey {
                 } catch (IOException e) {
                     throw new RuntimeException("Failed to initialize MonkeyServer");
                 }
-                mMonkeyServerThread.start();
+                mMonkeyServer.getThread().start();
             }
 
             if (mApeCleanApp) {

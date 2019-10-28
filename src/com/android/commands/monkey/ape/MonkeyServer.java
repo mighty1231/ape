@@ -102,15 +102,24 @@ public class MonkeyServer implements Runnable {
 
     private int connection_cnt;
 
+    private boolean is_running;
+
+    private Thread thread;
+
     private MonkeyServer() throws IOException {
         lss = new LocalServerSocket(SOCK_ADDRESS);
         last_idle_time = 0;
         last_target_time = 0;
         connection_cnt = 0;
         last_method_id = -1;
+        is_running = true;
         buffer = new byte[8];
-
         parseTargetMtds();
+        thread = new Thread(this);
+    }
+
+    public Thread getThread() {
+        return thread;
     }
 
     public void registerAPE(MonkeySourceApe ape) throws IOException {
@@ -154,6 +163,34 @@ public class MonkeyServer implements Runnable {
             }
         }
         System.out.println("[MonkeyServer] Total " + target_methods.size() + " methods are targeted");
+    }
+
+    public void close() {
+        System.out.println("[MonkeyServer] Closing...");
+        // close run
+        is_running = false;
+        try {
+            is.close();
+            os.close();
+            lss.close();
+        } catch (IOException e) {
+            System.out.println("[MonkeyServer] lss.close() " + e.getMessage());
+        }
+        System.out.println("[MonkeyServer] server socket closed");
+
+        // NOTICE: thread.join does not interrupt blocking on accept
+        // try {
+        //     thread.join();
+        // } catch (InterruptedException e) {
+        //     System.out.println("[MonkeyServer] Interrupted during thread.join");
+        // }
+
+        thread.interrupt();
+        System.out.println("[MonkeyServer] Thread terminated");
+
+        // close file
+        serverlog_pw.close();
+        System.out.println("[MonkeyServer] Log closed");
     }
 
     public void alertCrash() {
@@ -239,18 +276,35 @@ public class MonkeyServer implements Runnable {
         return ret;
     }
 
+
+    public synchronized void waitFirstConnection() {
+        while (connection_cnt == 0) {
+            try {
+                wait();
+            } catch (InterruptedException e) {
+                System.out.println("[MonkeyServer] interrupt");
+                Thread.currentThread().interrupt();
+            }
+        }
+    }
+
     @Override
     public void run() {
         /* It may be enough to one-to-one with client */
-        while (true) {
+        while (is_running) {
             try {
                 socket = lss.accept();
                 is = socket.getInputStream();
                 os = socket.getOutputStream();
                 connection_cnt += 1;
                 serverlog_pw.println(String.format("%d New connection #%d established", System.currentTimeMillis(), connection_cnt));
+                synchronized (this) {
+                    notifyAll();
+                } 
             } catch (IOException e) {
-                throw new RuntimeException("accept");
+                if (is_running)
+                    throw new RuntimeException("accept");
+                break;
             }
             try {
                 // send target methods
@@ -269,7 +323,7 @@ public class MonkeyServer implements Runnable {
                 throw new RuntimeException("write methods");
             }
 
-            while (true) {
+            while (is_running) {
                 int id;
                 try {
                     id = readInt32();
@@ -281,6 +335,7 @@ public class MonkeyServer implements Runnable {
                     synchronized (this) {
                         last_idle_time = -1;
                         last_target_time = -1;
+                        connection_cnt = 0;
                     }
                     break;
                 }
@@ -324,6 +379,7 @@ public class MonkeyServer implements Runnable {
                     synchronized (this) {
                         last_idle_time = -1;
                         last_target_time = -1;
+                        connection_cnt = 0;
                     }
                     break;
                 }
