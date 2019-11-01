@@ -160,7 +160,7 @@ public class SataAgent extends StatefulAgent {
 
     static enum SataEventType {
         TRIVIAL_ACTIVITY,
-        SATURATED_STATE, USE_BUFFER, EARLY_STAGE, TARGET_METHOD,
+        SATURATED_STATE, USE_BUFFER, EARLY_STAGE, TARGET_METHOD, TARGET_METHOD_NEAR,
         EPSILON_GREEDY, RANDOM, NULL, BUFFER_LOSS, FILL_BUFFER, BAD_STATE;
     }
 
@@ -316,6 +316,11 @@ public class SataAgent extends StatefulAgent {
             logActionSelected(resolved, SataEventType.TARGET_METHOD);
             return resolved;
         }
+        resolved = selectNewActionWithTargetMethodNear();
+        if (resolved != null) {
+            logActionSelected(resolved, SataEventType.TARGET_METHOD_NEAR);
+            return resolved;
+        }
         resolved = selectNewActionEpsilonGreedyRandomly();
         if (resolved != null) {
             logActionSelected(resolved, SataEventType.EPSILON_GREEDY);
@@ -339,13 +344,26 @@ public class SataAgent extends StatefulAgent {
 
     protected ModelAction selectNewActionWithTargetMethod() {
         // with probability
-        double v = ape.getRandom().nextDouble();
-        if (v < 0.8) {
-            return newState.pickWithTargetMethod(getGraph(), ape.getRandom());
-        } else {
-           return null;
-        }
+        // double v = ape.getRandom().nextDouble();
+        // if (v < 0.8) {
+        //     return newState.pickWithTargetMethod(getGraph(), ape.getRandom());
+        // } else {
+        //    return null;
+        // }
+        return newState.pickWithTargetMethod(getGraph(), ape.getRandom());
     }
+
+    protected ModelAction selectNewActionWithTargetMethodNear() {
+        // with probability
+        // double v = ape.getRandom().nextDouble();
+        // if (v < 0.95) {
+        //     return newState.pickWithTargetMethodNear(getGraph(), ape.getRandom());
+        // } else {
+        //    return null;
+        // }
+        return newState.pickWithTargetMethodNear(getGraph(), ape.getRandom());
+    }
+
     protected ModelAction selectNewActionEpsilonGreedyRandomly() {
         ModelAction back = newState.getBackAction();
         if (back.isValid()) {

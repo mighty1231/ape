@@ -12,6 +12,7 @@ public class StateTransition extends GraphElement {
      * 
      */
     private static final long serialVersionUID = -7293256167339096483L;
+    private static final double[] metTargetMethodScoresToProb = {1.0, 1.0/1.2, 1.0/1.2/1.2, 1.0/1.2/1.2/1.2, 1.0/1.2/1.2/1.2/1.2, 1.0/1.2/1.2/1.2/1.2/1.2};
 
     public final State source;
 
@@ -27,6 +28,9 @@ public class StateTransition extends GraphElement {
 
     private int throttle = Integer.MAX_VALUE;
 
+    private int lenTransitions;
+    private double targetRatio;
+
     List<GUITreeTransition> treeTransitions;
 
     public StateTransition(State source, ModelAction action, State target) {
@@ -38,6 +42,8 @@ public class StateTransition extends GraphElement {
         this.source = source;
         this.target = target;
         this.action = action;
+        this.targetRatio = -1.0;
+        this.lenTransitions = 0;
     }
 
     public void updateThrottle(int throttle) {
@@ -189,16 +195,25 @@ public class StateTransition extends GraphElement {
     }
 
     public double metTargetRatio() {
-        int met = 0;
-        int total = 0;
-        for (GUITreeTransition gtransition: treeTransitions) {
-            total += 1;
-            if (gtransition.getMetTargetMethod())
-                met += 1;
+        /* @TODO modify here??? */
+        int sz = treeTransitions.size();
+        if (lenTransitions == sz && targetRatio >= 0.0) {
+            return targetRatio;
         }
-        if (total == 0)
-            return 0.0;
 
-        return ((double) met) / total;
+        double totalValue = 0.0;
+        for (GUITreeTransition gtransition: treeTransitions) {
+            int score = gtransition.getMetTargetMethodScore();
+            if (score >= 0) {
+                totalValue += metTargetMethodScoresToProb[score];
+            }
+        }
+
+        lenTransitions = sz;
+        if (sz != 0)
+            targetRatio = totalValue / sz;
+        else
+            targetRatio = 0.0;
+        return targetRatio;
     }
 }

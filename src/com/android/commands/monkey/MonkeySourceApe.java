@@ -58,6 +58,7 @@ import com.android.commands.monkey.ape.model.Graph;
 import com.android.commands.monkey.ape.agent.StatefulAgent;
 import com.android.commands.monkey.ape.model.Model.ActionRecord;
 import com.android.commands.monkey.ape.model.StateTransition;
+import com.android.commands.monkey.ape.tree.GUITree;
 import com.android.commands.monkey.ape.tree.GUITreeTransition;
 
 import android.accessibilityservice.AccessibilityServiceInfo;
@@ -774,38 +775,59 @@ public class MonkeySourceApe implements MonkeyEventSource {
         // Set target only when 1 actionrecord is injected
         //                      1 GUITreeTransition is added
         // Otherwise, log it
+        // Update metTargetScore
         if (mMonkeyServer != null) {
             List<ActionRecord> records = mAgent.getActionHistory();
-            List<GUITreeTransition> transitions = ((StatefulAgent) mAgent).getGraph().getTreeHistory();
+            Graph graph = ((StatefulAgent) mAgent).getGraph();
+            List<GUITreeTransition> transitions = graph.getTreeHistory();
             int num_records = records.size();
             int num_transitions = transitions.size();
-            if (num_records >= 1) {
+            if (num_records >= 1 && last_num_records >= 1) {
                 int rec_diff = last_num_records - llast_num_records;
                 int tr_diff = num_transitions - last_num_transitions;
+                Action lastAction = records.get(last_num_records - 1).modelAction;
 
                 System.out.println(String.format("[APE_MT] num records diff %d num transitions diff %d", rec_diff, tr_diff));
-                if (rec_diff == 1 && tr_diff == 1) {
+                if (rec_diff == 1 && tr_diff == 1 && !lastAction.canStartApp()) {
                     // mark GUITransition
-                    Action lastAction = records.get(last_num_records - 1).modelAction;
-                    GUITreeTransition lastTransition = transitions.get(num_transitions - 1);
                     if (mMonkeyServer.metTargetMethods(last_action_generated_time)) {
-                        lastTransition.setMetTargetMethod();
+                        // mark last transition/state
+                        GUITreeTransition lastTransition = transitions.get(num_transitions - 1);
+                        GUITree lastGUITree = lastTransition.getTarget();
+                        if (lastGUITree == null) {
+                            throw new RuntimeException("Should not reach here");
+                        }
+                        lastTransition.setMetTargetMethodScore(0);
+                        lastGUITree.setMetTargetMethodScore(0);
+                        graph.addMetTargetMethodGUITree(lastGUITree);
+
+                        System.out.println("[APE_MT] MET_TARGET state " + lastGUITree.toString());
                         System.out.println("[APE_MT] MET_TARGET action " + lastAction.toString());
                         System.out.println("[APE_MT] MET_TARGET transition " + lastTransition.getCurrentStateTransition().toString());
+
+                        // 1~5 scores
+                        // for (int idx = 1; idx <= 5 && num_transitions - 1 - idx >= 0; idx++) {
+                        //     GUITreansition formerTransition = transitions.get(num_transitions - 1 - idx);
+                        //     GUITree formerGUITree = formerTransition.getSource();
+                        //     // formerTransition.setMetTargetMethodScore(idx);
+                        //     formerGUITree.setMetTargetMethodScore(idx);
+                        //     if (graph.isEntryTree(formerGUITree)) {
+                        //         break;
+                        //     }
+                        // }
+
+                        // GUITransition last, rebuild last rebuild last rebuild.
+                        // Back, No record
+                        // {(0, 0), (3, 1), (2, 1), (2, 0), (5, 0), (1, 0), (4, 0)}
+                        // >=5 actions
+                        // <=1 transitions
                     }
                 } else {
                     // get differences! @TODO to watch diff transitions
                     System.out.println(String.format("[APE_MT] diff of records %d~%d", llast_num_records, last_num_records));
-                    boolean canStartApp = false;
                     for (int i=llast_num_records; i<last_num_records; i++) {
                         Action executed_action = records.get(i).modelAction;
                         System.out.println(String.format("[APE_MT] rec: %d %s", i, executed_action.toString()));
-                        if (executed_action.canStartApp())
-                            canStartApp = true;
-                    }
-                    if (canStartApp) {
-                        System.out.println("[APE_MT] Wait for monkeyserver accept");
-                        mMonkeyServer.waitFirstConnection();
                     }
                     System.out.println(String.format("[APE_MT] diff of transitions %d~%d", last_num_transitions, num_transitions));
                     for (int i=last_num_transitions; i<num_transitions; i++) {
@@ -1189,6 +1211,10 @@ public class MonkeySourceApe implements MonkeyEventSource {
                 mAgent.onAppActivityStarted(cn, this.waitForActivityFromClean);
                 this.waitForActivity = false; // we found the activity we
                 this.waitForActivityFromClean = false;
+                if (mMonkeyServer != null) {
+                    System.out.println("[APE_MT] Wait for monkeyserver accept");
+                    mMonkeyServer.waitFirstConnection();
+                }
             }
             return;
         }
@@ -1288,8 +1314,6 @@ public class MonkeySourceApe implements MonkeyEventSource {
                         }
                         long result = mMonkeyServer.waitForIdle(lastEventPoppedTime, waitMillis);
                         eventPoppedTimes.add(lastEventPoppedTime);
-
-                        Graph graph = ((StatefulAgent) mAgent).getGraph();
                         System.out.println("[APE_MT] ACTION " + lastAction);
                         System.out.println("[APE_MT] " + lastRecord.clockTimestamp + "/" + lastEventPoppedTime);
                     }

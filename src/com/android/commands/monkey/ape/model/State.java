@@ -9,6 +9,9 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.LinkedList;
 
 import com.android.commands.monkey.ape.ActionFilter;
 import com.android.commands.monkey.ape.agent.StatefulAgent;
@@ -107,9 +110,11 @@ public class State extends GraphElement {
 
     public ModelAction pickWithTargetMethod(Graph graph, Random random) {
         // no one uses that.... then,
+        int actionCount = actions.length;
+        if (actionCount == 0)
+            return null;
         ModelAction bestAction = null;
         double maxRatio = 0.0;
-        int actionCount = 0;
         for (ModelAction action : actions) {
 
             Set<StateTransition> stateTransitions = graph.getTransitionSetByName(action);
@@ -129,14 +134,110 @@ public class State extends GraphElement {
                 bestAction = action;
                 maxRatio = ratio;
             }
-            actionCount += 1;
         }
+        if (bestAction != null)
+            System.out.println("[APE_MT] Found MET_TARGET action " + bestAction +  " ratio " + maxRatio + " among size = " + actionCount);
+        return bestAction;
+    }
 
-        if (actionCount == 0)
+    public ModelAction pickWithTargetMethodNear(Graph graph, Random random) {
+        /*
+        if target met transition exists, choose it, otherwise choose nearest states,
+        */
+
+        /* make score to target */
+        Map<State, Integer> stateToScore = new HashMap<>();
+        LinkedList<State> stateQueue = new LinkedList<>();
+        Set<State> targetStates = graph.getMetTargetMethodStates();
+        if (targetStates == null || targetStates.isEmpty()) {
+            System.out.println("[APE_MT] targetStates.size = 0");
+            return null;
+        }
+        if (actions.length == 0)
             return null;
 
-        System.out.println("[APE_MT] Found MET_TARGET action " + bestAction +  " ratio " + maxRatio + " among size = " + actionCount);
-        return bestAction;
+        System.out.println("[APE_MT] targetStates.size = " + targetStates.size());
+        for (State state: targetStates) {
+            stateToScore.put(state, 0);
+            System.out.println("[APE_MT] Cover state " + state + " as 0");
+            stateQueue.addLast(state);
+        }
+
+        // @TODO probability on state.
+        // state that more GUITrees target should has higher priority
+        while (!stateQueue.isEmpty()) {
+            State state = stateQueue.removeFirst();
+            int score = stateToScore.get(state) + 1;
+            System.out.println("[APE_MT] Cover state " + state + " as " + score);
+            Set<StateTransition> transitions = graph.getInStateTransitions(state);
+            for (StateTransition transition : transitions) {
+                State source = transition.getSource();
+                if (source != null && !stateToScore.containsKey(source)) {
+                    stateToScore.put(source, score);
+                    if (!graph.isEntryState(source))
+                        stateQueue.addLast(source);
+                }
+            }
+        }
+
+        // explore
+        // currently, do NOP action is the best
+        Integer currentScore = stateToScore.get(this);
+        if (currentScore == null || currentScore == 0) { // target is unreachable now, or cannot be better
+            return null;
+        }
+
+        List<ModelAction> actionCandidates = new ArrayList<>();
+
+        // current states' score;
+        for (ModelAction action : actions) {
+            Set<StateTransition> stateTransitions = graph.getTransitionSetByName(action);
+            for (StateTransition transition: stateTransitions) {
+                State target = transition.getTarget();
+                if (target != null) {
+                    Integer score = stateToScore.get(target);
+                    if (score == null)
+                        System.out.println("[APE_MT] target " + target + " is unreachable to target");
+                    else {
+                        System.out.println("[APE_MT] target " + target + " has score " + score);
+                        if (score < currentScore) {
+                            actionCandidates.add(action);
+                            break;
+                        }
+                    }
+                } else {
+                    System.out.println("[APE_MT] target of transition " + transition + " is null" );
+                }
+            }
+        }
+
+        if (!actionCandidates.isEmpty()) {
+            ModelAction bestAction = RandomHelper.randomPick(actionCandidates);
+            if (random.nextDouble()*Math.pow(1.2, currentScore) <= 1) {
+                System.out.println("[APE_MT] MET_TARGET_NEAR action " + bestAction +  " currentScore " + currentScore + " among actions.size = " + actions.length);
+                return bestAction;
+            }
+            System.out.println("[APE_MT] MET_TARGET_NEAR action found but distance " + currentScore + " is too long " + bestAction);
+            return null;
+        }
+
+        return null;
+    }
+
+    public double evaluateTargetMethodScore() {
+        if (treeHistory == null)
+            return 0.0;
+        int totalScore = 0;
+        int cnt = 0;
+        for (GUITree tree : treeHistory) {
+            int score = tree.getMetTargetMethodScore();
+            if (score >= 0) {
+                totalScore += 1;
+            }
+        }
+        if (cnt == 0)
+            return 0.0;
+        return (double) totalScore / cnt;
     }
 
     public ModelAction greedyPickLeastVisited(ActionFilter filter) {
@@ -514,5 +615,17 @@ public class State extends GraphElement {
 
     public boolean isBackEnabled() {
         return ActionFilter.ENABLED_VALID.include(this.backAction);
+    }
+
+    public double getMetTargetMethodScore() {
+        double totalScore = 0.0;
+        int cnt = 0;
+        for (GUITree tree : treeHistory) {
+            totalScore += tree.getMetTargetMethodScore();
+            cnt += 1;
+        }
+        if (cnt != 0)
+            return (double) totalScore / cnt; 
+        return 0.0;
     }
 }

@@ -100,7 +100,7 @@ public class MonkeyServer implements Runnable {
     private long last_target_time; // must be protected with lock
     private int last_method_id; // must be protected with lock
 
-    private int connection_cnt;
+    private volatile int connection_cnt;
 
     private boolean is_running;
 
@@ -197,6 +197,7 @@ public class MonkeyServer implements Runnable {
         synchronized (this) {
             last_idle_time = -1; // crashed
             last_target_time = -1;
+            connection_cnt = 0;
             notifyAll();
         }
     }
@@ -296,11 +297,11 @@ public class MonkeyServer implements Runnable {
                 socket = lss.accept();
                 is = socket.getInputStream();
                 os = socket.getOutputStream();
-                connection_cnt += 1;
                 serverlog_pw.println(String.format("%d New connection #%d established", System.currentTimeMillis(), connection_cnt));
                 synchronized (this) {
+                    connection_cnt += 1;
                     notifyAll();
-                } 
+                }
             } catch (IOException e) {
                 if (is_running)
                     throw new RuntimeException("accept");

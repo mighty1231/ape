@@ -56,10 +56,13 @@ public class GUITree implements Serializable {
 
     private transient Document document;
 
+    private int metTargetMethodScore;
+
     public GUITree(GUITreeNode guiTree, ComponentName activityName) {
         this.rootNode = guiTree;
         this.activityPackageName = activityName.getPackageName();
         this.activityClassName = activityName.getClassName();
+        this.metTargetMethodScore = -1;
     }
 
     public Naming getCurrentNaming() {
@@ -327,5 +330,13 @@ public class GUITree implements Serializable {
 
     public Object[] getCurrentNodes() {
         return currentNodes;
+    }
+
+    public int getMetTargetMethodScore() {
+        return metTargetMethodScore;
+    }
+
+    public void setMetTargetMethodScore(int score) {
+        metTargetMethodScore = score;
     }
 }

@@ -112,6 +112,8 @@ public class Graph implements Serializable {
 
     private boolean verbose = true;
 
+    private List<GUITree> metTargetMethodGUITrees = new ArrayList<>();
+
     public int size() {
         return keyToState.size();
     }
@@ -1286,6 +1288,10 @@ public class Graph implements Serializable {
         this.entryGUITrees.add(tree);
     }
 
+    public boolean isEntryGUITree(GUITree tree) {
+        return this.entryGUITrees.contains(tree);
+    }
+
     public void addCleanEntryGUITree(GUITree tree) {
         this.cleanEntryGUITrees.add(tree);
     }
@@ -1353,5 +1359,25 @@ public class Graph implements Serializable {
             }
         }
         return results;
+    }
+
+    public void addMetTargetMethodGUITree(GUITree tree) {
+        metTargetMethodGUITrees.add(tree);
+    }
+
+    public Set<State> getMetTargetMethodStates() {
+        if (metTargetMethodGUITrees.isEmpty())
+            return null;
+
+        Set<State> states = new HashSet<State>();
+        for (GUITree tree : metTargetMethodGUITrees) {
+            State state = tree.getCurrentState();
+            if (state == null) {
+                System.out.println("[APE_MT] state is null from GUITree");
+            } else {
+                states.add(state);
+            }
+        }
+        return states;
     }
 }
