@@ -62,4 +62,5 @@ public interface Agent {
 
     boolean onLostFocused(int counter);
 
+    void notifyActionConsumed();
 }

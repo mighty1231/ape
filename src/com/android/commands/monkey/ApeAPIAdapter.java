@@ -76,7 +76,8 @@ public class ApeAPIAdapter {
             }
             getTasksMethod = method;
         }
-        if (method.getGenericParameterTypes().length == 2) {
+        int parameterCount = method.getParameterTypes().length;
+        if (parameterCount == 2) {
             return (List<RunningTaskInfo>) invoke(method, iAm, maxNum, 0 /* flags */);
         } else { // 1
             return (List<RunningTaskInfo>) invoke(method, iAm, maxNum);

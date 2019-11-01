@@ -16,6 +16,7 @@ import com.android.commands.monkey.ape.utils.StringCache;
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
 import android.graphics.Rect;
+import android.view.accessibility.AccessibilityNodeInfo;
 
 public class GUITreeNode implements Serializable {
 
@@ -36,7 +37,7 @@ public class GUITreeNode implements Serializable {
     private boolean clickable;
     private boolean isFocusable;
     private boolean longClickable;
-    private boolean scrollable;
+    private int scrollable;
     private boolean isPassword;
 
     private int descendantCount = 1; // inclusive, include itself
@@ -53,6 +54,7 @@ public class GUITreeNode implements Serializable {
     private Name xpathName;
     private transient Namelet currentNamelet;
     private transient Element domNode;
+    private transient AccessibilityNodeInfo nodeInfo;
 
     private int index;
     private final GUITreeNode parent;
@@ -128,6 +130,7 @@ public class GUITreeNode implements Serializable {
         setClickable(false);
         setLongClickable(false);
         setScrollable(false);
+        int scrollable = 0;
         for (ActionType at : actionTypes) {
             switch (at) {
             case EVENT_START:
@@ -147,13 +150,18 @@ public class GUITreeNode implements Serializable {
                 break;
             case MODEL_SCROLL_TOP_DOWN:
             case MODEL_SCROLL_BOTTOM_UP:
+                scrollable = scrollable | 1;
+                break;
             case MODEL_SCROLL_LEFT_RIGHT:
             case MODEL_SCROLL_RIGHT_LEFT:
-                setScrollable(true);
+                scrollable = scrollable | 2;
                 break;
             default:
                 throw new RuntimeException("Should not reach here");
             }
+        }
+        if (scrollable != 0) {
+            setScrollable(scrollable);
         }
     }
 
@@ -352,13 +360,21 @@ public class GUITreeNode implements Serializable {
     }
 
     public boolean isScrollable() {
-        return scrollable;
+        return scrollable != 0;
     }
 
     public void setScrollable(boolean scrollable) {
+        this.scrollable = scrollable ? 3 : 0;
+        if (domNode != null) {
+            domNode.setAttribute("scrollable", String.valueOf(isScrollable()));
+            domNode.setAttribute("scroll-type", String.valueOf(getScrollType()));
+        }
+    }
+
+    public void setScrollable(int scrollable) {
         this.scrollable = scrollable;
         if (domNode != null) {
-            domNode.setAttribute("scrollable", String.valueOf(scrollable));
+            domNode.setAttribute("scrollable", String.valueOf(isScrollable()));
             domNode.setAttribute("scroll-type", String.valueOf(getScrollType()));
         }
     }
@@ -475,6 +491,12 @@ public class GUITreeNode implements Serializable {
                 || className.equals("android.support.v4.view.ViewPager")) {
             return "horizontal";
         }
+        if (scrollable == 1) {
+            return "vertical";
+        }
+        if (scrollable == 2) {
+            return "horizontal";
+        }
         return "all";
     }
 
@@ -581,6 +603,9 @@ public class GUITreeNode implements Serializable {
             return;
         }
         image = image.copy(Config.RGB_565, true);
+        if (image == null) {
+            return;
+        }
         image.getPixels(pixels, 0, imageWidth, x, y, width - 1, height - 1);
         int hash = 0;
         int begin = 0;
@@ -590,6 +615,18 @@ public class GUITreeNode implements Serializable {
             }
             begin = begin + imageWidth;
         }
+        image.recycle();
         setText(String.format("#%x", hash));
+    }
+
+    public void setNodeInfo(AccessibilityNodeInfo info) {
+        if (this.nodeInfo != null) {
+            this.nodeInfo.recycle();
+        }
+        this.nodeInfo = info;
+    }
+
+    public AccessibilityNodeInfo getNodeInfo() {
+        return this.nodeInfo;
     }
 }
