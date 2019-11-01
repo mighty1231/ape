@@ -829,7 +829,7 @@ public class MonkeySourceApe implements MonkeyEventSource {
         //                      1 GUITreeTransition is added
         // Otherwise, log it
         // Update metTargetScore
-        if (mMonkeyServer != null) {
+        if (mMonkeyServer != null && !mMonkeyServer.noGuide()) {
             List<ActionRecord> records = mAgent.getActionHistory();
             Graph graph = ((StatefulAgent) mAgent).getGraph();
             List<GUITreeTransition> transitions = graph.getTreeHistory();
@@ -1375,7 +1375,7 @@ public class MonkeySourceApe implements MonkeyEventSource {
         }
         if (!hasEvent()) {
             try {
-                if (mMonkeyServer != null) {
+                if (mMonkeyServer != null && !mMonkeyServer.noGuide()) {
                     // wait for idle state!
                     List<ActionRecord> records = mAgent.getActionHistory();
                     int actionLength = records.size();
@@ -1409,7 +1409,7 @@ public class MonkeySourceApe implements MonkeyEventSource {
         mEventCount++;
         MonkeyEvent e = popEvent();
         ApeRRFormatter.logConsume(mEventConsumeLogger, e);
-        if (mMonkeyServer != null) {
+        if (mMonkeyServer != null && !mMonkeyServer.noGuide()) {
             if (!(e instanceof MonkeyThrottleEvent)) {
                 lastEventPoppedTime = System.currentTimeMillis();
             }

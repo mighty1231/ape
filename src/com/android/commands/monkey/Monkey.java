@@ -268,6 +268,7 @@ public class Monkey {
     /* Communicate with Android Runtime in target app with MonkeyServer */
     private boolean mCommunicateWithART = false;
     private boolean mTargetMtdWithART = false;
+    private boolean mNoMtdGuide = false;
 
     private MonkeyServer mMonkeyServer;
     private Thread mMonkeyServerThread;
@@ -737,7 +738,7 @@ public class Monkey {
             mMonkeyServer = null;
             if (mCommunicateWithART) {
                 try {
-                    MonkeyServer.makeInstance();
+                    MonkeyServer.makeInstance(mNoMtdGuide);
                 } catch (IOException e) {
                     throw new RuntimeException("Failed to initialize MonkeyServer");
                 }
@@ -1013,6 +1014,9 @@ public class Monkey {
                     mTargetMtdWithART = true;
                     String targetmtdfile = nextOptionData();
                     Config.set("ape.mt.targetmtdfile", targetmtdfile);
+                } else if (opt.equals("--no-mtdguide")) {
+                    // target but no induce. just for log
+                    mNoMtdGuide = true;
                 } else {
                     System.err.println("** Error: Unknown option: " + opt);
                     showUsage();
@@ -1029,6 +1033,12 @@ public class Monkey {
 
         // To activate art with targeting methods
         if (mTargetMtdWithART && !mCommunicateWithART) {
+            System.err.println("** Error: To target methods, turn on --mt option");
+            showUsage();
+            return false;
+        }
+
+        if (mNoMtdGuide && !mCommunicateWithART) {
             System.err.println("** Error: To target methods, turn on --mt option");
             showUsage();
             return false;
@@ -1643,6 +1653,7 @@ public class Monkey {
         usage.append("              [--periodic-bugreport]\n");
         usage.append("              [--mt]\n");
         usage.append("              [--mtdtarget MTD_TARGET_FILE]\n");
+        usage.append("              [--no-mtdguide]\n");
         usage.append("              COUNT\n");
         System.err.println(usage.toString());
     }

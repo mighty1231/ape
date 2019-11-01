@@ -111,6 +111,10 @@ public class State extends GraphElement {
     public ModelAction pickWithTargetMethod(Graph graph, Random random) {
         // no one uses that.... then,
         int actionCount = actions.length;
+        Set<State> targetStates = graph.getMetTargetMethodStates();
+        if (targetStates == null || targetStates.isEmpty()) {
+            return null;
+        }
         if (actionCount == 0)
             return null;
         ModelAction bestAction = null;
