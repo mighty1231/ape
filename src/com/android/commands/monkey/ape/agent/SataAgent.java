@@ -296,6 +296,16 @@ public class SataAgent extends StatefulAgent {
             logActionSelected(resolved, SataEventType.TRIVIAL_ACTIVITY);
             return resolved;
         }
+        resolved = selectNewActionWithTargetMethod();
+        if (resolved != null) {
+            logActionSelected(resolved, SataEventType.TARGET_METHOD);
+            return resolved;
+        }
+        resolved = selectNewActionWithTargetMethodNear();
+        if (resolved != null) {
+            logActionSelected(resolved, SataEventType.TARGET_METHOD_NEAR);
+            return resolved;
+        }
         resolved = selectNewActionEarlyStageForward();
         if (resolved != null) {
             logActionSelected(resolved, SataEventType.EARLY_STAGE);
@@ -309,16 +319,6 @@ public class SataAgent extends StatefulAgent {
         resolved = selectNewActionEarlyStageBackward();
         if (resolved != null) {
             logActionSelected(resolved, SataEventType.EARLY_STAGE);
-            return resolved;
-        }
-        resolved = selectNewActionWithTargetMethod();
-        if (resolved != null) {
-            logActionSelected(resolved, SataEventType.TARGET_METHOD);
-            return resolved;
-        }
-        resolved = selectNewActionWithTargetMethodNear();
-        if (resolved != null) {
-            logActionSelected(resolved, SataEventType.TARGET_METHOD_NEAR);
             return resolved;
         }
         resolved = selectNewActionEpsilonGreedyRandomly();

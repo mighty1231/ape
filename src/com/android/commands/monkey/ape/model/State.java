@@ -117,31 +117,57 @@ public class State extends GraphElement {
         }
         if (actionCount == 0)
             return null;
-        ModelAction bestAction = null;
-        double maxRatio = 0.0;
-        for (ModelAction action : actions) {
 
-            Set<StateTransition> stateTransitions = graph.getTransitionSetByName(action);
-            double sum = 0.0; int cnt = 0;
-            for (StateTransition transition: stateTransitions) {
-                double ratio = transition.metTargetRatio();
-                if (ratio > 0.0) {
-                    sum += ratio; cnt += 1;
+
+        // choose from state transition history
+        // @TODO if transitions with ratio > 0.0 is more than two.. then..?
+        List<ModelAction> actionCandidates = new ArrayList<>();
+        Set<StateTransition> transitions = graph.getOutStateTransitions(this);
+        double maxRatio = 0.0;
+        ModelAction chosen = null;
+        for (StateTransition transition : transitions) {
+            double ratio = transition.metTargetRatio();
+            if (ratio > maxRatio) {
+                ModelAction candidate = transition.getAction();
+                try {
+                    chosen = getAction(candidate.getTarget(), candidate.getType());
+                    maxRatio = ratio;
+                } catch (IllegalStateException e) {
+                    System.out.println(String.format("[APE_MT] Failed to find action with name %s type %s",
+                            candidate.getTarget(), candidate.getType()));
                 }
             }
+        }
 
-            if (cnt == 0)
-                continue;
+        // double maxRatio = 0.0;
+        // for (ModelAction action : actions) {
 
-            double ratio = sum / cnt;
-            if (maxRatio < ratio) {
-                bestAction = action;
-                maxRatio = ratio;
+        //     Set<StateTransition> stateTransitions = graph.getTransitionSetByName(action);
+        //     double sum = 0.0; int cnt = 0;
+        //     for (StateTransition transition: stateTransitions) {
+        //         double ratio = transition.metTargetRatio();
+        //         if (ratio > 0.0) {
+        //             sum += ratio; cnt += 1;
+        //         }
+        //     }
+
+        //     if (cnt == 0)
+        //         continue;
+
+        //     double ratio = sum / cnt;
+        //     if (maxRatio < ratio) {
+        //         chosen = action;
+        //         maxRatio = ratio;
+        //     }
+        // }
+        if (chosen != null) {
+            if (random.nextDouble() < maxRatio) {
+                System.out.println("[APE_MT] Accept MET_TARGET action " + chosen +  " ratio " + maxRatio + " among size = " + actionCount);
+            } else {
+                System.out.println("[APE_MT] Reject MET_TARGET action " + chosen +  " ratio " + maxRatio + " among size = " + actionCount);
             }
         }
-        if (bestAction != null)
-            System.out.println("[APE_MT] Found MET_TARGET action " + bestAction +  " ratio " + maxRatio + " among size = " + actionCount);
-        return bestAction;
+        return chosen;
     }
 
     public ModelAction pickWithTargetMethodNear(Graph graph, Random random) {
@@ -167,12 +193,16 @@ public class State extends GraphElement {
             stateQueue.addLast(state);
         }
 
-        // @TODO probability on state.
+        // Evaluate distance to target state from each states.
         // state that more GUITrees target should has higher priority
+        int currentScore = graph.size();
         while (!stateQueue.isEmpty()) {
             State state = stateQueue.removeFirst();
+            if (state == this) {
+                currentScore = stateToScore.get(state);
+                break;
+            }
             int score = stateToScore.get(state) + 1;
-            System.out.println("[APE_MT] Cover state " + state + " as " + score);
             Set<StateTransition> transitions = graph.getInStateTransitions(state);
             for (StateTransition transition : transitions) {
                 State source = transition.getSource();
@@ -184,13 +214,41 @@ public class State extends GraphElement {
             }
         }
 
-        // explore
-        // currently, do NOP action is the best
-        Integer currentScore = stateToScore.get(this);
-        if (currentScore == null || currentScore == 0) { // target is unreachable now, or cannot be better
+        if (currentScore == 0 || currentScore == graph.size()) { // target is unreachable now, or cannot be better
             return null;
         }
 
+        // choose from state transition history
+        List<ModelAction> actionCandidates = new ArrayList<>();
+        Set<StateTransition> transitions = graph.getOutStateTransitions(this);
+        for (StateTransition transition : transitions) {
+            State target = transition.getTarget();
+            if (target == null)
+                continue;
+
+            Integer targetScore = stateToScore.get(target);
+            if (targetScore == null) {
+                System.out.println("[APE_MT] Transition candidate " + transition);
+                System.out.println(String.format("[APE_MT] State %s score undefined", target));
+            } else {
+                if (targetScore < currentScore) {
+                    System.out.println("[APE_MT] Transition candidate " + transition);
+                    System.out.println(String.format("[APE_MT] State %s score %d", target, targetScore));
+                    ModelAction candidate = transition.getAction();
+                    try {
+                        actionCandidates.add(getAction(candidate.getTarget(), candidate.getType()));
+                    } catch (IllegalStateException e) {
+                        System.out.println(String.format("[APE_MT] Failed to find action with name %s type %s",
+                                candidate.getTarget(), candidate.getType()));
+                    }
+                }
+            }
+        }
+
+        /*
+        // explore
+        // currently, do NOP action is the best
+        System.out.println("[APE_MT] Current state " + this + " has score " + currentScore);
         List<ModelAction> actionCandidates = new ArrayList<>();
 
         // current states' score;
@@ -214,14 +272,15 @@ public class State extends GraphElement {
                 }
             }
         }
+        */
 
         if (!actionCandidates.isEmpty()) {
-            ModelAction bestAction = RandomHelper.randomPick(actionCandidates);
+            ModelAction chosen = RandomHelper.randomPick(actionCandidates);
             if (random.nextDouble()*Math.pow(1.2, currentScore) <= 1) {
-                System.out.println("[APE_MT] MET_TARGET_NEAR action " + bestAction +  " currentScore " + currentScore + " among actions.size = " + actions.length);
-                return bestAction;
+                System.out.println("[APE_MT] MET_TARGET_NEAR action " + chosen +  " currentScore " + currentScore + " among actions.size = " + actions.length);
+                return chosen;
             }
-            System.out.println("[APE_MT] MET_TARGET_NEAR action found but distance " + currentScore + " is too long " + bestAction);
+            System.out.println("[APE_MT] MET_TARGET_NEAR action found but distance " + currentScore + " is too long " + chosen);
             return null;
         }
 
