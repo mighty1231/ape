@@ -16,6 +16,7 @@ public class CompoundNamer extends AbstractNamer {
         Name[] names;
 
         public CompoundName(Name... names) {
+            super();
             this.names = names;
         }
 

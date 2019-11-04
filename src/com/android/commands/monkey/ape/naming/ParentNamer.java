@@ -13,6 +13,7 @@ public class ParentNamer extends AbstractNamer {
         Name localName;
 
         public ParentName(Name parentName, Name localName) {
+            super();
             this.parentName = parentName;
             this.localName = localName;
         }

@@ -15,6 +15,7 @@ public class IndexNamer extends AbstractNamer implements SingletonNamer {
         private int index;
 
         public IndexName(int index) {
+            super();
             this.index = index;
         }
 

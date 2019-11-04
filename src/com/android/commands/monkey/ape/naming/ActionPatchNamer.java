@@ -23,6 +23,7 @@ public class ActionPatchNamer extends AbstractNamer implements Serializable {
         List<ActionType> actions;
 
         public ActionPatchName(Name baseName, int patch, ScrollType scrollType) {
+            super();
             this.baseName = baseName;
             this.patch = patch;
             this.scrollType = scrollType;

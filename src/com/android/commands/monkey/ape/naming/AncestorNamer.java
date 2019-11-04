@@ -18,6 +18,7 @@ public class AncestorNamer extends AbstractNamer {
         private Name[] names;
 
         public AncestorName (Name... names) {
+            super();
             this.names = names;
         }
 
