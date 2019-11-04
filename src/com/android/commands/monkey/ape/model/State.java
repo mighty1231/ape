@@ -129,12 +129,31 @@ public class State extends GraphElement {
             double ratio = transition.metTargetRatio();
             if (ratio > maxRatio) {
                 ModelAction candidate = transition.getAction();
-                try {
-                    chosen = getAction(candidate.getTarget(), candidate.getType());
-                    maxRatio = ratio;
-                } catch (IllegalStateException e) {
+                Name widget = candidate.getTarget();
+                ActionType type = candidate.getType();
+                boolean found = false;
+                if (widget != null) {
+                    for (ModelAction action : actions) {
+                        if (widget.equals(action.getTarget()) && type.equals(action.getType())) {
+                            chosen = action;
+                            found = true;
+                            break;
+                        }
+                    }
+                } else {
+                    for (ModelAction action : actions) {
+                        if (action.requireTarget() == false && type.equals(action.getType())) {
+                            chosen = action;
+                            found = true;
+                            break;
+                        }
+                    }
+                }
+                if (!found) {
                     System.out.println(String.format("[APE_MT] Failed to find action with name %s type %s",
-                            candidate.getTarget(), candidate.getType()));
+                            widget, type));
+                } else {
+                    maxRatio = ratio;
                 }
             }
         }
@@ -235,11 +254,30 @@ public class State extends GraphElement {
                     System.out.println("[APE_MT] Transition candidate " + transition);
                     System.out.println(String.format("[APE_MT] State %s score %d", target, targetScore));
                     ModelAction candidate = transition.getAction();
-                    try {
-                        actionCandidates.add(getAction(candidate.getTarget(), candidate.getType()));
-                    } catch (IllegalStateException e) {
+                    Name widget = candidate.getTarget();
+                    ActionType type = candidate.getType();
+                    boolean found = false;
+                    if (widget != null) {
+                        for (ModelAction action : actions) {
+                            if (widget.equals(action.getTarget()) && type.equals(action.getType())) {
+                                actionCandidates.add(action);
+                                found = true;
+                                break;
+                            }
+                        }
+                    } else {
+                        for (ModelAction action : actions) {
+                            if (action.requireTarget() == false && type.equals(action.getType())) {
+                                actionCandidates.add(action);
+                                found = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (!found) {
                         System.out.println(String.format("[APE_MT] Failed to find action with name %s type %s",
-                                candidate.getTarget(), candidate.getType()));
+                                widget, type));
                     }
                 }
             }
