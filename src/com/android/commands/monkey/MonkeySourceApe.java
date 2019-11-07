@@ -850,30 +850,20 @@ public class MonkeySourceApe implements MonkeyEventSource {
                         if (lastGUITree == null) {
                             throw new RuntimeException("Should not reach here");
                         }
+
+                        // if the state became target state as first time, rebuild subsequence trie
+                        boolean rebuild = false;
+                        if (lastGUITree.getCurrentState().getMetTargetMethodScore() == 0) { rebuild = true; }
                         lastTransition.setMetTargetMethodScore(0);
-                        lastGUITree.setMetTargetMethodScore(0);
+                        lastGUITree.setMetTargetMethod();
                         graph.addMetTargetMethodGUITree(lastGUITree);
+                        if (rebuild) {
+                            graph.rebuildSubsequenceTrie();
+                        }
 
                         System.out.println("[APE_MT] MET_TARGET state " + lastGUITree.toString());
                         System.out.println("[APE_MT] MET_TARGET action " + lastAction.toString());
                         System.out.println("[APE_MT] MET_TARGET transition " + lastTransition.getCurrentStateTransition().toString());
-
-                        // 1~5 scores
-                        // for (int idx = 1; idx <= 5 && num_transitions - 1 - idx >= 0; idx++) {
-                        //     GUITreansition formerTransition = transitions.get(num_transitions - 1 - idx);
-                        //     GUITree formerGUITree = formerTransition.getSource();
-                        //     // formerTransition.setMetTargetMethodScore(idx);
-                        //     formerGUITree.setMetTargetMethodScore(idx);
-                        //     if (graph.isEntryTree(formerGUITree)) {
-                        //         break;
-                        //     }
-                        // }
-
-                        // GUITransition last, rebuild last rebuild last rebuild.
-                        // Back, No record
-                        // {(0, 0), (3, 1), (2, 1), (2, 0), (5, 0), (1, 0), (4, 0)}
-                        // >=5 actions
-                        // <=1 transitions
                     }
                 } else {
                     // get differences! @TODO to watch diff transitions

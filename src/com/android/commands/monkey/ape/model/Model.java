@@ -252,6 +252,7 @@ public class Model implements Serializable {
                 graph.addTransition(source, action, target, tt);
             }
             graph.rebuildHistory();
+            graph.rebuildSubsequenceTrie();
             graph.setVerbose(true);
             graph.enableGraphEvents();
             long e = SystemClock.elapsedRealtimeNanos();

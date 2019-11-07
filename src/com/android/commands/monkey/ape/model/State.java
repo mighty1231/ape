@@ -241,6 +241,8 @@ public class State extends GraphElement {
         List<ModelAction> actionCandidates = new ArrayList<>();
         Set<StateTransition> transitions = graph.getOutStateTransitions(this);
         for (StateTransition transition : transitions) {
+            if (!graph.checkNextTransition(transition))
+                continue;
             State target = transition.getTarget();
             if (target == null)
                 continue;
@@ -323,22 +325,6 @@ public class State extends GraphElement {
         }
 
         return null;
-    }
-
-    public double evaluateTargetMethodScore() {
-        if (treeHistory == null)
-            return 0.0;
-        int totalScore = 0;
-        int cnt = 0;
-        for (GUITree tree : treeHistory) {
-            int score = tree.getMetTargetMethodScore();
-            if (score >= 0) {
-                totalScore += 1;
-            }
-        }
-        if (cnt == 0)
-            return 0.0;
-        return (double) totalScore / cnt;
     }
 
     public ModelAction greedyPickLeastVisited(ActionFilter filter) {
@@ -718,15 +704,14 @@ public class State extends GraphElement {
         return ActionFilter.ENABLED_VALID.include(this.backAction);
     }
 
-    public double getMetTargetMethodScore() {
-        double totalScore = 0.0;
+    public int getMetTargetMethodScore() {
+        int score = 0;
         int cnt = 0;
         for (GUITree tree : treeHistory) {
-            totalScore += tree.getMetTargetMethodScore();
+            if (tree.metTargetMethod())
+                score += 1;
             cnt += 1;
         }
-        if (cnt != 0)
-            return (double) totalScore / cnt; 
-        return 0.0;
+        return score;
     }
 }

@@ -21,6 +21,7 @@ import java.util.Set;
 import com.android.commands.monkey.ape.ActionFilter;
 import com.android.commands.monkey.ape.Subsequence;
 import com.android.commands.monkey.ape.SubsequenceFilter;
+import com.android.commands.monkey.ape.SubsequenceTrie;
 import com.android.commands.monkey.ape.naming.Name;
 import com.android.commands.monkey.ape.naming.Naming;
 import com.android.commands.monkey.ape.tree.GUITree;
@@ -28,6 +29,7 @@ import com.android.commands.monkey.ape.tree.GUITreeAction;
 import com.android.commands.monkey.ape.tree.GUITreeTransition;
 import com.android.commands.monkey.ape.utils.Logger;
 import com.android.commands.monkey.ape.utils.Utils;
+import com.android.commands.monkey.ape.utils.Config;
 
 public class Graph implements Serializable {
 
@@ -100,6 +102,9 @@ public class Graph implements Serializable {
     private transient List<StateTransition> stateTransitionHistory = new ArrayList<>();
     private List<GUITreeTransition> treeTransitionHistory = new ArrayList<>(100);
 
+    // To achieve diversity of sequences splitted with target state
+    private transient SubsequenceTrie subsequenceTrie;
+
     private boolean fireEvents;
     private transient List<GraphListener> listeners;
     private int timestamp;
@@ -113,6 +118,12 @@ public class Graph implements Serializable {
     private boolean verbose = true;
 
     private List<GUITree> metTargetMethodGUITrees = new ArrayList<>();
+
+    public Graph() {
+        int observingSeqLength = Config.getInteger("ape.mt.observingSeqLength", 10);
+        int seqCountLimit = Config.getInteger("ape.mt.seqCountLimit", 3);
+        subsequenceTrie = new SubsequenceTrie(observingSeqLength, seqCountLimit);
+    }
 
     public int size() {
         return keyToState.size();
@@ -375,6 +386,7 @@ public class Graph implements Serializable {
         if (this.cleanEntryGUITrees.contains(sourceTree)) {
             this.cleanEntryStates.add(source);
         }
+        forwardSubsequenceTrie(treeTransition);
         return edge;
     }
 
@@ -1263,6 +1275,45 @@ public class Graph implements Serializable {
             }
             edge.visitedCount++;
             stateTransitionHistory.add(edge);
+        }
+    }
+
+    // after GUITreeTransition added and marked, put it into subsequenceTrie
+    public void forwardSubsequenceTrie(GUITreeTransition lastTransition) {
+        if (metTargetMethodGUITrees.isEmpty())
+            return;
+        int sz = treeTransitionHistory.size();
+        int count = subsequenceTrie.getTransitionCount();
+        if (sz != count + 1) {
+            throw new RuntimeException(String.format("Size does not match sz %d count %d", sz, count));
+        }
+
+        if (sz >= 2 || treeTransitionHistory.get(sz-2).getTarget() != lastTransition.getSource()) {
+            subsequenceTrie.stateSplit();
+        }
+        subsequenceTrie.moveForward(lastTransition.getCurrentStateTransition());
+    }
+
+    // return whether or not it can be chosen as next action
+    public boolean checkNextTransition(StateTransition transition) {
+        return subsequenceTrie.checkNextTransition(transition);
+    }
+
+    // @TODO
+    public void rebuildSubsequenceTrie() {
+        System.out.println("[APE_MT_SS] rebuild: metTargetMethodGUITrees " + metTargetMethodGUITrees.toString());
+        if (metTargetMethodGUITrees.isEmpty())
+            return;
+        subsequenceTrie.clear();
+        GUITree cur = null;
+        for (GUITreeTransition guiTransition: treeTransitionHistory) {
+            if (cur == null || (cur.getCurrentState().getMetTargetMethodScore() > 0 || cur != guiTransition.getSource())) {
+                System.out.println("[APE_MT_SS] rebuild: split!");
+                subsequenceTrie.stateSplit();
+            }
+            System.out.println("[APE_MT_SS] rebuild: forward " + guiTransition.getCurrentStateTransition().toShortString());
+            subsequenceTrie.moveForward(guiTransition.getCurrentStateTransition());
+            cur = guiTransition.getTarget();
         }
     }
 
