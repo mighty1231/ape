@@ -1306,7 +1306,7 @@ public class Graph implements Serializable {
 
     // @TODO
     public void rebuildSubsequenceTrie() {
-        System.out.println("[APE_MT_SS] rebuild: metTargetMethodGUITrees " + metTargetMethodGUITrees.toString());
+        // System.out.println("[APE_MT_SS] rebuild: metTargetMethodGUITrees " + metTargetMethodGUITrees.toString());
         if (metTargetMethodGUITrees.isEmpty())
             return;
         subsequenceTrie.clear();
@@ -1315,7 +1315,7 @@ public class Graph implements Serializable {
             if (cur == null || cur.getCurrentState().getMetTargetMethodScore() > 0 || cur != guiTransition.getSource()) {
                 subsequenceTrie.stateSplit();
             }
-            System.out.println("[APE_MT_SS] rebuild: forward " + guiTransition.getCurrentStateTransition().toShortString());
+            // System.out.println("[APE_MT_SS] rebuild: forward " + guiTransition.getCurrentStateTransition().toShortString());
             subsequenceTrie.moveForward(guiTransition.getCurrentStateTransition());
             cur = guiTransition.getTarget();
         }

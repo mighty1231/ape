@@ -21,6 +21,7 @@ import com.android.commands.monkey.ape.naming.NamerFactory;
 import com.android.commands.monkey.ape.naming.Naming;
 import com.android.commands.monkey.ape.tree.GUITree;
 import com.android.commands.monkey.ape.tree.GUITreeNode;
+import com.android.commands.monkey.ape.tree.GUITreeTransition;
 import com.android.commands.monkey.ape.utils.Logger;
 import com.android.commands.monkey.ape.utils.RandomHelper;
 import com.android.commands.monkey.ape.utils.Utils;
@@ -118,6 +119,19 @@ public class State extends GraphElement {
         if (actionCount == 0)
             return null;
 
+        // if there were same transitions >= 2 in a row, don't choose it anymore
+        List<GUITreeTransition> history = graph.getTreeHistory();
+        int history_length = history.size();
+        StateTransition transition_to_avoid = null;
+        if (history_length >= 3) {
+            transition_to_avoid = history.get(history_length-1).getCurrentStateTransition();
+            for (int i=1; i<3; i++) {
+                if (transition_to_avoid != history.get(history_length-1-i).getCurrentStateTransition()) {
+                    transition_to_avoid = null;
+                    break;
+                }
+            }
+        }
 
         // choose from state transition history
         // @TODO if transitions with ratio > 0.0 is more than two.. then..?
@@ -126,6 +140,8 @@ public class State extends GraphElement {
         double maxRatio = 0.0;
         ModelAction chosen = null;
         for (StateTransition transition : transitions) {
+            if (transition == transition_to_avoid)
+                continue;
             double ratio = transition.metTargetRatio();
             if (ratio > maxRatio) {
                 ModelAction candidate = transition.getAction();

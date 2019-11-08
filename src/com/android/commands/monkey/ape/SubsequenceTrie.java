@@ -110,9 +110,9 @@ public class SubsequenceTrie {
     public void stateSplit() {
         if (curNode == root) { return; }
         int count = curNode.getCount();
-        System.out.println(String.format("[APE_MT_SS] stateSplit %d -> %d", count, count+1));
+        // System.out.println(String.format("[APE_MT_SS] stateSplit %d -> %d", count, count+1));
         curNode.incCount();
-        root.print(0, 3, curNode);
+        // root.print(0, 3, curNode);
         curNode = root;
         curLength = 0;
     }
