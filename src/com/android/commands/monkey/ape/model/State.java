@@ -126,7 +126,7 @@ public class State extends GraphElement {
         if (history_length >= 3) {
             transition_to_avoid = history.get(history_length-1).getCurrentStateTransition();
             for (int i=1; i<3; i++) {
-                if (transition_to_avoid != history.get(history_length-1-i).getCurrentStateTransition()) {
+                if (!transition_to_avoid.equals(history.get(history_length-1-i).getCurrentStateTransition())) {
                     transition_to_avoid = null;
                     break;
                 }
@@ -140,7 +140,7 @@ public class State extends GraphElement {
         double maxRatio = 0.0;
         ModelAction chosen = null;
         for (StateTransition transition : transitions) {
-            if (transition == transition_to_avoid)
+            if (transition.equals(transition_to_avoid))
                 continue;
             double ratio = transition.metTargetRatio();
             if (ratio > maxRatio) {
@@ -334,6 +334,7 @@ public class State extends GraphElement {
             ModelAction chosen = RandomHelper.randomPick(actionCandidates);
             if (random.nextDouble()*Math.pow(1.2, currentScore) <= 1) {
                 System.out.println("[APE_MT] MET_TARGET_NEAR action " + chosen +  " currentScore " + currentScore + " among actions.size = " + actions.length);
+                graph.debug_trieprint();
                 return chosen;
             }
             System.out.println("[APE_MT] MET_TARGET_NEAR action found but distance " + currentScore + " is too long " + chosen);

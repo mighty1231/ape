@@ -35,9 +35,11 @@ public class SubsequenceTrie {
             for (int i=0; i<curDepth; i++)
                 System.out.print("  ");
             if (curNode == this)
-                System.out.println(String.format("- %d[children=%d] <- CURRENT", count, children.size()));
+                System.out.println(String.format("- %s[cnt=%d][#children=%d] <- CURRENT", transition.toShortString(), count, children.size()));
+            else if (transition == null)
+                System.out.println(String.format("- null[cnt=%d][#children=%d]", count, children.size()));
             else
-                System.out.println(String.format("- %d[children=%d]", count, children.size()));
+                System.out.println(String.format("- %s[cnt=%d][#children=%d]", transition.toShortString(), count, children.size()));
             if (curDepth >= maxDepth) {
                 for (int i=0; i<curDepth; i++)
                     System.out.print("  ");
@@ -106,13 +108,15 @@ public class SubsequenceTrie {
         return totalSize;
     }
 
+    public void debug_print() {
+        root.print(0, 3, curNode);
+    }
+
     // met TargetState
     public void stateSplit() {
         if (curNode == root) { return; }
         int count = curNode.getCount();
-        // System.out.println(String.format("[APE_MT_SS] stateSplit %d -> %d", count, count+1));
         curNode.incCount();
-        // root.print(0, 3, curNode);
         curNode = root;
         curLength = 0;
     }

@@ -1304,9 +1304,12 @@ public class Graph implements Serializable {
         return ret;
     }
 
+    public void debug_trieprint() {
+        subsequenceTrie.debug_print();
+    }
+
     // @TODO
     public void rebuildSubsequenceTrie() {
-        // System.out.println("[APE_MT_SS] rebuild: metTargetMethodGUITrees " + metTargetMethodGUITrees.toString());
         if (metTargetMethodGUITrees.isEmpty())
             return;
         subsequenceTrie.clear();
