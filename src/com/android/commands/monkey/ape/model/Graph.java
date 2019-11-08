@@ -1288,8 +1288,12 @@ public class Graph implements Serializable {
             throw new RuntimeException(String.format("Size does not match sz %d count %d", sz, count));
         }
 
+        if (sz < 2) {
+            subsequenceTrie.moveForward(lastTransition.getCurrentStateTransition());
+            return;
+        }
         GUITree lastTree = treeTransitionHistory.get(sz-2).getTarget();
-        if (sz >= 2 || lastTree.getCurrentState().getMetTargetMethodScore() > 0 || lastTree != lastTransition.getSource()) {
+        if (lastTree.getCurrentState().getMetTargetMethodScore() > 0 || lastTree != lastTransition.getSource()) {
             subsequenceTrie.stateSplit();
         }
         subsequenceTrie.moveForward(lastTransition.getCurrentStateTransition());
@@ -1318,7 +1322,6 @@ public class Graph implements Serializable {
             if (cur == null || cur.getCurrentState().getMetTargetMethodScore() > 0 || cur != guiTransition.getSource()) {
                 subsequenceTrie.stateSplit();
             }
-            // System.out.println("[APE_MT_SS] rebuild: forward " + guiTransition.getCurrentStateTransition().toShortString());
             subsequenceTrie.moveForward(guiTransition.getCurrentStateTransition());
             cur = guiTransition.getTarget();
         }
