@@ -1439,21 +1439,6 @@ public class MonkeySourceApe implements MonkeyEventSource {
         System.out.println(SANITAG + "full map test pass " + pc + " fail " + fc);
     }
 
-    public void dumpActions() {
-        if (mMonkeyServer != null) {
-            System.out.println("[APE_MT] Dumping total actions...");
-            List<ActionRecord> actions = mAgent.getActionHistory();
-            for (ActionRecord ar: actions) {
-                System.out.println("[APE_MT] " + ar.clockTimestamp + " - " + ar.modelAction);
-            }
-            System.out.println("[APE_MT] ======");
-            for (Long eventPoppedTime: eventPoppedTimes) {
-                System.out.println("[APE_MT] " + eventPoppedTime);
-            }
-            System.out.println("[APE_MT] -----------------");
-        }
-    }
-
     public Random getRandom() {
         return mRandom;
     }

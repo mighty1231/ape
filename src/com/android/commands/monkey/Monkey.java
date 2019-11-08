@@ -1401,9 +1401,6 @@ public class Monkey {
                     shouldAbort = false;
                     System.out.println("** Monkey aborted due to error.");
                     System.out.println("Events injected: " + eventCounter);
-                    if (mEventSource instanceof MonkeySourceApe) {
-                        ((MonkeySourceApe) mEventSource).dumpActions();
-                    }
                     return eventCounter;
                 }
             }
@@ -1474,9 +1471,6 @@ public class Monkey {
             }
         }
         System.out.println("Events injected: " + eventCounter);
-        if (mEventSource instanceof MonkeySourceApe) {
-            ((MonkeySourceApe) mEventSource).dumpActions();
-        }
         return eventCounter;
     }
 
