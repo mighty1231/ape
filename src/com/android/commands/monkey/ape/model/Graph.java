@@ -1288,7 +1288,8 @@ public class Graph implements Serializable {
             throw new RuntimeException(String.format("Size does not match sz %d count %d", sz, count));
         }
 
-        if (sz >= 2 || treeTransitionHistory.get(sz-2).getTarget() != lastTransition.getSource()) {
+        GUITree lastTree = treeTransitionHistory.get(sz-2).getTarget();
+        if (sz >= 2 || lastTree.getCurrentState().getMetTargetMethodScore() > 0 || lastTree != lastTransition.getSource()) {
             subsequenceTrie.stateSplit();
         }
         subsequenceTrie.moveForward(lastTransition.getCurrentStateTransition());
@@ -1296,7 +1297,11 @@ public class Graph implements Serializable {
 
     // return whether or not it can be chosen as next action
     public boolean checkNextTransition(StateTransition transition) {
-        return subsequenceTrie.checkNextTransition(transition);
+        boolean ret = subsequenceTrie.checkNextTransition(transition);
+        if (!ret) {
+            System.out.println("[APE_MT_SS] Avoid to choose next transition " + transition.toShortString());
+        }
+        return ret;
     }
 
     // @TODO
@@ -1307,8 +1312,7 @@ public class Graph implements Serializable {
         subsequenceTrie.clear();
         GUITree cur = null;
         for (GUITreeTransition guiTransition: treeTransitionHistory) {
-            if (cur == null || (cur.getCurrentState().getMetTargetMethodScore() > 0 || cur != guiTransition.getSource())) {
-                System.out.println("[APE_MT_SS] rebuild: split!");
+            if (cur == null || cur.getCurrentState().getMetTargetMethodScore() > 0 || cur != guiTransition.getSource()) {
                 subsequenceTrie.stateSplit();
             }
             System.out.println("[APE_MT_SS] rebuild: forward " + guiTransition.getCurrentStateTransition().toShortString());

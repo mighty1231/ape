@@ -1,6 +1,7 @@
 package com.android.commands.monkey.ape;
 
-import java.util.HashMap; 
+import java.util.HashMap;
+import java.util.Map;
 
 import com.android.commands.monkey.ape.model.State;
 import com.android.commands.monkey.ape.model.StateTransition;
@@ -28,6 +29,25 @@ public class SubsequenceTrie {
         public State getState() { return state; } 
         public int getCount() { return count; }
         public void incCount() { count += 1; }
+
+        // debug
+        public void print(int curDepth, int maxDepth, SubsequenceTrieNode curNode) {
+            for (int i=0; i<curDepth; i++)
+                System.out.print("  ");
+            if (curNode == this)
+                System.out.println(String.format("- %d[children=%d] <- CURRENT", count, children.size()));
+            else
+                System.out.println(String.format("- %d[children=%d]", count, children.size()));
+            if (curDepth >= maxDepth) {
+                for (int i=0; i<curDepth; i++)
+                    System.out.print("  ");
+                System.out.println("  ...");
+                return;
+            }
+            for (Map.Entry<StateTransition, SubsequenceTrieNode> elem: children.entrySet()) {
+                elem.getValue().print(curDepth + 1, maxDepth, curNode);
+            }
+        }
     }
 
     private SubsequenceTrieNode root;
@@ -89,7 +109,10 @@ public class SubsequenceTrie {
     // met TargetState
     public void stateSplit() {
         if (curNode == root) { return; }
+        int count = curNode.getCount();
+        System.out.println(String.format("[APE_MT_SS] stateSplit %d -> %d", count, count+1));
         curNode.incCount();
+        root.print(0, 3, curNode);
         curNode = root;
         curLength = 0;
     }
