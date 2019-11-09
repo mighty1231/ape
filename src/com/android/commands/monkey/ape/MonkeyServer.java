@@ -115,7 +115,7 @@ public class MonkeyServer implements Runnable {
         connection_cnt = 0;
         last_method_id = -1;
         is_running = true;
-        buffer = new byte[8];
+        buffer = new byte[128];
         parseTargetMtds();
         thread = new Thread(this);
         this.mNoMtdGuide = mNoMtdGuide;
@@ -276,6 +276,27 @@ public class MonkeyServer implements Runnable {
         return ret;
     }
 
+    public String readPrefix() throws IOException {
+        int length = readInt32();
+        int byte_written = 0;
+        int cur_written;
+        while (byte_written < length) {
+            cur_written = is.read(buffer, byte_written, length-byte_written);
+            if (cur_written == -1) {
+                throw new IOException("readint32");
+            }
+
+            byte_written += cur_written;
+        }
+
+        buffer[length] = 0;
+        String ret = new String(buffer, 0, length, "UTF-8");
+        System.out.println("[MonkeyServer] prefix length " + length);
+        System.out.println("[MonkeyServer] prefix " + ret);
+
+        return ret;
+    }
+
     // called from thread with MonkeySourceApe
     public synchronized boolean metTargetMethods(long timestamp) {
         boolean ret = last_target_time > timestamp;
@@ -296,11 +317,40 @@ public class MonkeyServer implements Runnable {
         }
     }
 
+    public void moveFilesWithPrefix(String prefix) {
+        // Get array with all files of `Tango`
+        int idx = prefix.lastIndexOf("/");
+        String mtdir = prefix.substring(0, idx);
+        String prefix_filename = prefix.substring(idx+1, prefix.length());
+
+        serverlog_pw.println("moveFilesWithPrefix mtdir " + mtdir + " / filename " + prefix_filename);
+
+        File mtdirFile = new File(mtdir);
+        File[] allFiles = mtdirFile.listFiles();
+        for (File file : allFiles) {
+            if (file.getName().startsWith(prefix_filename)) {
+                serverlog_pw.println("startswith prefix " + file.getName() + " : " + prefix_filename);
+                if (file.renameTo(new File("/data/ape/mt_data/" + file.getName()))) {
+                    serverlog_pw.println("rename success");
+                }else {
+                    serverlog_pw.println("rename fail");
+                }
+            } else {
+                serverlog_pw.println("not startswith prefix " + file.getName() + " : " + prefix_filename);
+            }
+        }
+    }
+
     @Override
     public void run() {
         /* It may be enough to one-to-one with client */
+        String prefix = null;
         while (is_running) {
             try {
+                if (prefix != null) {
+                    // move previous results
+                    moveFilesWithPrefix(prefix);
+                }
                 socket = lss.accept();
                 is = socket.getInputStream();
                 os = socket.getOutputStream();
@@ -325,6 +375,7 @@ public class MonkeyServer implements Runnable {
                     serverlog_pw.println(String.format("%d Handshake failed %d", System.currentTimeMillis(), Integer.toHexString(hsval)));
                     throw new RuntimeException("handshake");
                 }
+                prefix = readPrefix();
                 writeInt32(target_methods.size()); // size could be zero
                 serverlog_pw.println(String.format("%d Handshake success", System.currentTimeMillis()));
                 for (TargetMethod target : target_methods) {

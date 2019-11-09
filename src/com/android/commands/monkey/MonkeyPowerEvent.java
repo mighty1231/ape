@@ -32,7 +32,7 @@ public class MonkeyPowerEvent extends MonkeyEvent {
 
     // Parameter for the power test runner
     private static final String TAG = "PowerTester";
-    private static final String LOG_FILE = "/sdcard/autotester.log";
+    private static final String LOG_FILE = "/data/ape/autotester.log";
     private static ArrayList<ContentValues> mLogEvents = new ArrayList<ContentValues>();
     private static final String TEST_SEQ_BEGIN = "AUTOTEST_SEQUENCE_BEGIN";
     private static final String TEST_STARTED = "AUTOTEST_TEST_BEGIN";

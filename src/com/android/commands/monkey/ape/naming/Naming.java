@@ -343,9 +343,9 @@ public class Naming implements Serializable {
     }
 
     protected void saveXmlOnError(Document tree) {
-        Logger.wprintln("Saving xml to /sdcard/badtree.xml");
+        Logger.wprintln("Saving xml to /data/ape/badtree.xml");
         try {
-            Utils.saveXml("/sdcard/badtree.xml", tree);
+            Utils.saveXml("/data/ape/badtree.xml", tree);
         } catch (Exception e) {
             // TODO Auto-generated catch block
             e.printStackTrace();

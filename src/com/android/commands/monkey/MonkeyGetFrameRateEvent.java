@@ -46,7 +46,7 @@ public class MonkeyGetFrameRateEvent extends MonkeyEvent {
     private static int mEndFrameNo;
 
     private static final String TAG = "MonkeyGetFrameRateEvent";
-    private static final String LOG_FILE = "/sdcard/avgFrameRateOut.txt";
+    private static final String LOG_FILE = "/data/ape/avgFrameRateOut.txt";
 
     private static final Pattern NO_OF_FRAMES_PATTERN = Pattern.compile(".*\\(([a-f[A-F][0-9]].*?)\\s.*\\)");
 

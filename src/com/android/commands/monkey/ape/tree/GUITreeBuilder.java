@@ -73,7 +73,7 @@ public class GUITreeBuilder {
      */
     private static final List<XPathlet> xPathlets;
     static {
-        File jsonFile = new File("/sdcard/ape.xpath");
+        File jsonFile = new File("/data/ape/ape.xpath");
         XPathletReader reader = new XPathletReader();
         if (jsonFile.exists()) {
             xPathlets = reader.read(jsonFile);

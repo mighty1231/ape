@@ -34,7 +34,7 @@ public class XPathActionController {
     static {
         XPathActionReader reader = new XPathActionReader();
         List<XPathActionSequence> actions;
-        File jsonFile = new File("/sdcard/ape.xpath.actions");
+        File jsonFile = new File("/data/ape/ape.xpath.actions");
         if (jsonFile.exists()) {
             actions = reader.read(jsonFile);
         } else {

@@ -53,7 +53,7 @@ public class StringCache {
     }
 
     static {
-        File stringFiles = new File("/sdcard/ape.strings");
+        File stringFiles = new File("/data/ape/ape.strings");
         strings = new ArrayList<String>();
         if (stringFiles.exists()) {
             try (BufferedReader br = new BufferedReader(new FileReader(stringFiles))) {

@@ -14,7 +14,7 @@ public class Config {
     static {
         configurations = new Properties(System.getProperties());
         loadConfiguration("/data/local/tmp/ape.properties");
-        loadConfiguration("/sdcard/ape.properties");
+        loadConfiguration("/data/ape/ape.properties");
     }
 
     /**

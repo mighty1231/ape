@@ -588,7 +588,7 @@ public class Monkey {
         }
     }
 
-    // Write the bugreport to the sdcard.
+    // Write the bugreport to the data/ape.
     private void getBugreport(String reportName) {
         reportName += MonkeyUtils.toCalendarTime(System.currentTimeMillis());
         String bugreportName = reportName.replaceAll("[ ,:]", "_");
@@ -1070,7 +1070,7 @@ public class Monkey {
         }
         {
             StringBuilder sb = new StringBuilder();
-            sb.append("/sdcard/sata-");
+            sb.append("/data/ape/sata-");
             for (String pkg : validPackages) {
                 sb.append(pkg);
                 sb.append('-');
@@ -1089,6 +1089,14 @@ public class Monkey {
                 sb.append(mCount);
             }
             mOutputDirectory = createOutputDirectory(sb.toString());
+            File dir = new File("/data/ape");
+            if (!dir.exists()) { if (!dir.mkdirs()) {
+                throw new IllegalStateException("Cannot mkdirs at file " + dir);
+            }}
+            dir = new File("/data/ape/mt_data");
+            if (!dir.exists()) { if (!dir.mkdirs()) {
+                throw new IllegalStateException("Cannot mkdirs at file " + dir);
+            }}
         }
 
         return true;
