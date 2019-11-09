@@ -108,6 +108,8 @@ public class MonkeyServer implements Runnable {
 
     private Thread thread;
 
+    private List<String> moved_prefixes;
+
     private MonkeyServer(boolean mNoMtdGuide) throws IOException {
         lss = new LocalServerSocket(SOCK_ADDRESS);
         last_idle_time = 0;
@@ -119,6 +121,7 @@ public class MonkeyServer implements Runnable {
         parseTargetMtds();
         thread = new Thread(this);
         this.mNoMtdGuide = mNoMtdGuide;
+        moved_prefixes = new ArrayList<>();
     }
 
     public Thread getThread() {
@@ -315,6 +318,10 @@ public class MonkeyServer implements Runnable {
                 Thread.currentThread().interrupt();
             }
         }
+        for (String prefix: moved_prefixes) {
+            System.out.println("[APE_MT] mt data " + moved_prefixes);
+        }
+        moved_prefixes.clear();
     }
 
     public void moveFilesWithPrefix(String prefix) {
@@ -338,6 +345,9 @@ public class MonkeyServer implements Runnable {
             } else {
                 serverlog_pw.println("not startswith prefix " + file.getName() + " : " + prefix_filename);
             }
+        }
+        synchronized(this) {
+            moved_prefixes.add(prefix);
         }
     }
 
