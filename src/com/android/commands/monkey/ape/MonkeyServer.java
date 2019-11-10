@@ -332,9 +332,6 @@ public class MonkeyServer implements Runnable {
 
         buffer[length] = 0;
         String ret = new String(buffer, 0, length, "UTF-8");
-        System.out.println("[MonkeyServer] directory length " + length);
-        System.out.println("[MonkeyServer] directory " + ret);
-
         return ret;
     }
 
