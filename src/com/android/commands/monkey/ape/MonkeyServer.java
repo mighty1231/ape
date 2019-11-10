@@ -319,7 +319,7 @@ public class MonkeyServer implements Runnable {
             }
         }
         for (String prefix: moved_prefixes) {
-            System.out.println("[APE_MT] mt data " + moved_prefixes);
+            System.out.println("[APE_MT] mt data " + prefix);
         }
         moved_prefixes.clear();
     }
@@ -339,7 +339,7 @@ public class MonkeyServer implements Runnable {
                 serverlog_pw.println("startswith prefix " + file.getName() + " : " + prefix_filename);
                 if (file.renameTo(new File("/data/ape/mt_data/" + file.getName()))) {
                     serverlog_pw.println("rename success");
-                }else {
+                } else {
                     serverlog_pw.println("rename fail");
                 }
             } else {
@@ -347,7 +347,7 @@ public class MonkeyServer implements Runnable {
             }
         }
         synchronized(this) {
-            moved_prefixes.add(prefix);
+            moved_prefixes.add("/data/ape/mt_data/" + prefix_filename);
         }
     }
 
