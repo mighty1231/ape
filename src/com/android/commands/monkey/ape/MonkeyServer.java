@@ -108,7 +108,7 @@ public class MonkeyServer implements Runnable {
 
     private Thread thread;
 
-    private List<String> moved_prefixes;
+    private List<String> moved_directories;
 
     private MonkeyServer(boolean mNoMtdGuide) throws IOException {
         lss = new LocalServerSocket(SOCK_ADDRESS);
@@ -121,7 +121,7 @@ public class MonkeyServer implements Runnable {
         parseTargetMtds();
         thread = new Thread(this);
         this.mNoMtdGuide = mNoMtdGuide;
-        moved_prefixes = new ArrayList<>();
+        moved_directories = new ArrayList<>();
     }
 
     public Thread getThread() {
@@ -196,7 +196,21 @@ public class MonkeyServer implements Runnable {
         // }
 
         thread.interrupt();
+        try {
+            thread.join();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+            Thread.currentThread().interrupt();
+        }
         System.out.println("[MonkeyServer] Thread terminated");
+
+        // move mt data
+        synchronized(this) {
+            for (String directory: moved_directories) {
+                System.out.println("[APE_MT] mt data " + directory);
+            }
+            moved_directories.clear();
+        }
 
         // close file
         serverlog_pw.close();
@@ -279,7 +293,7 @@ public class MonkeyServer implements Runnable {
         return ret;
     }
 
-    public String readPrefix() throws IOException {
+    public String readMTDirectory() throws IOException {
         int length = readInt32();
         int byte_written = 0;
         int cur_written;
@@ -294,8 +308,8 @@ public class MonkeyServer implements Runnable {
 
         buffer[length] = 0;
         String ret = new String(buffer, 0, length, "UTF-8");
-        System.out.println("[MonkeyServer] prefix length " + length);
-        System.out.println("[MonkeyServer] prefix " + ret);
+        System.out.println("[MonkeyServer] directory length " + length);
+        System.out.println("[MonkeyServer] directory " + ret);
 
         return ret;
     }
@@ -318,48 +332,41 @@ public class MonkeyServer implements Runnable {
                 Thread.currentThread().interrupt();
             }
         }
-        for (String prefix: moved_prefixes) {
-            System.out.println("[APE_MT] mt data " + prefix);
+        for (String directory: moved_directories) {
+            System.out.println("[APE_MT] mt data " + directory);
         }
-        moved_prefixes.clear();
+        moved_directories.clear();
     }
 
-    public void moveFilesWithPrefix(String prefix) {
-        // Get array with all files of `Tango`
-        int idx = prefix.lastIndexOf("/");
-        String mtdir = prefix.substring(0, idx);
-        String prefix_filename = prefix.substring(idx+1, prefix.length());
+    public void moveMTDirectory(String directory) {
+        // directory: /data/data/{package_name}/mt_data/{num}/
+        // move the directory to /data/ape/mt_data/{num}
+        File mt_data = new File(directory);
+        String[] part = directory.split("/");
+        if (part.length != 6) {
+            throw new RuntimeException("Unknown directory " + directory);
+        }
 
-        serverlog_pw.println("moveFilesWithPrefix mtdir " + mtdir + " / filename " + prefix_filename);
-
-        File mtdirFile = new File(mtdir);
-        File[] allFiles = mtdirFile.listFiles();
-        for (File file : allFiles) {
-            if (file.getName().startsWith(prefix_filename)) {
-                serverlog_pw.println("startswith prefix " + file.getName() + " : " + prefix_filename);
-                if (file.renameTo(new File("/data/ape/mt_data/" + file.getName()))) {
-                    serverlog_pw.println("rename success");
-                } else {
-                    serverlog_pw.println("rename fail");
-                }
-            } else {
-                serverlog_pw.println("not startswith prefix " + file.getName() + " : " + prefix_filename);
-            }
+        String dest = String.format("/data/ape/mt_data/%s", part[5]);
+        if (mt_data.renameTo(new File(dest))) {
+            serverlog_pw.println(String.format("rename done %s %s", directory, dest));
+        } else {
+            serverlog_pw.println(String.format("rename failed %s %s", directory, dest));
         }
         synchronized(this) {
-            moved_prefixes.add("/data/ape/mt_data/" + prefix_filename);
+            moved_directories.add(dest);
         }
     }
 
     @Override
     public void run() {
         /* It may be enough to one-to-one with client */
-        String prefix = null;
+        String directory = null;
         while (is_running) {
             try {
-                if (prefix != null) {
+                if (directory != null) {
                     // move previous results
-                    moveFilesWithPrefix(prefix);
+                    moveMTDirectory(directory);
                 }
                 socket = lss.accept();
                 is = socket.getInputStream();
@@ -385,7 +392,7 @@ public class MonkeyServer implements Runnable {
                     serverlog_pw.println(String.format("%d Handshake failed %d", System.currentTimeMillis(), Integer.toHexString(hsval)));
                     throw new RuntimeException("handshake");
                 }
-                prefix = readPrefix();
+                directory = readMTDirectory();
                 writeInt32(target_methods.size()); // size could be zero
                 serverlog_pw.println(String.format("%d Handshake success", System.currentTimeMillis()));
                 for (TargetMethod target : target_methods) {
