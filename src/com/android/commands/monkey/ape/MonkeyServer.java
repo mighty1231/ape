@@ -3,6 +3,8 @@ package com.android.commands.monkey.ape;
 import android.net.LocalSocket;
 import android.net.LocalSocketAddress;
 import android.net.LocalServerSocket;
+import java.net.SocketOptions;
+
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -16,6 +18,10 @@ import java.lang.RuntimeException;
 import java.util.ArrayList;
 import java.util.List;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.lang.reflect.InvocationTargetException;
+
 import com.android.commands.monkey.ape.utils.Config;
 import com.android.commands.monkey.MonkeySourceApe;
 
@@ -23,6 +29,7 @@ import com.android.commands.monkey.MonkeySourceApe;
  * Communicate with MiniTrace
  */
 public class MonkeyServer implements Runnable {
+
     class TargetMethod {
         public String clsname;
         public String mtdname;
@@ -77,9 +84,6 @@ public class MonkeyServer implements Runnable {
     private MonkeySourceApe ape;
     private PrintWriter serverlog_pw;
 
-    private LocalServerSocket lss;
-    private int value = 0;
-
     // connection-specific values
     private LocalSocket socket;
     private InputStream is;
@@ -110,8 +114,28 @@ public class MonkeyServer implements Runnable {
 
     private List<String> moved_directories;
 
+    // custom local socket
+    private LocalServerSocket lss;
+    private Object impl;
+    private Class<?> impl_class;
+
     private MonkeyServer(boolean mNoMtdGuide) throws IOException {
-        lss = new LocalServerSocket(SOCK_ADDRESS);
+        try {
+            impl_class = Class.forName("android.net.LocalSocketImpl");
+            lss = new LocalServerSocket(SOCK_ADDRESS);
+
+            Field localServerSocket_impl = lss.getClass().getDeclaredField("impl");
+            localServerSocket_impl.setAccessible(true);
+            impl = localServerSocket_impl.get(lss);
+
+            // Class[] consParamTypes = {String.class};
+            Method impl_setOption = impl_class.getMethod("setOption", int.class, Object.class);
+            impl_setOption.invoke(impl, SocketOptions.SO_TIMEOUT, 1000);
+        } catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException | InvocationTargetException | NoSuchFieldException e) {
+            e.printStackTrace();
+            throw new RuntimeException("LocalSocketImpl");
+        }
+
         last_idle_time = 0;
         last_target_time = 0;
         connection_cnt = 0;
@@ -184,7 +208,7 @@ public class MonkeyServer implements Runnable {
             os.close();
             lss.close();
         } catch (IOException e) {
-            System.out.println("[MonkeyServer] lss.close() " + e.getMessage());
+            System.out.println("[MonkeyServer] impl.close() " + e.getMessage());
         }
         System.out.println("[MonkeyServer] server socket closed");
 
@@ -363,23 +387,24 @@ public class MonkeyServer implements Runnable {
         /* It may be enough to one-to-one with client */
         String directory = null;
         while (is_running) {
-            try {
-                if (directory != null) {
-                    // move previous results
-                    moveMTDirectory(directory);
+            // accept loop
+            while (true) {
+                try {
+                    if (directory != null) { moveMTDirectory(directory); directory = null; }
+                    socket = lss.accept();
+                    is = socket.getInputStream();
+                    os = socket.getOutputStream();
+                    serverlog_pw.println(String.format("%d New connection #%d established", System.currentTimeMillis(), connection_cnt));
+                    synchronized (this) {
+                        connection_cnt += 1;
+                        notifyAll();
+                    }
+                    break;
+                } catch (IOException e) {
+                    // accept timeout
+                    if (!is_running)
+                        return;
                 }
-                socket = lss.accept();
-                is = socket.getInputStream();
-                os = socket.getOutputStream();
-                serverlog_pw.println(String.format("%d New connection #%d established", System.currentTimeMillis(), connection_cnt));
-                synchronized (this) {
-                    connection_cnt += 1;
-                    notifyAll();
-                }
-            } catch (IOException e) {
-                if (is_running)
-                    throw new RuntimeException("accept");
-                break;
             }
             try {
                 // send target methods
