@@ -56,6 +56,7 @@ import com.android.commands.monkey.ape.utils.Utils;
 import com.android.commands.monkey.ape.MonkeyServer;
 import com.android.commands.monkey.ape.model.Graph;
 import com.android.commands.monkey.ape.agent.StatefulAgent;
+import com.android.commands.monkey.ape.agent.SataAgent;
 import com.android.commands.monkey.ape.model.Model.ActionRecord;
 import com.android.commands.monkey.ape.model.StateTransition;
 import com.android.commands.monkey.ape.tree.GUITree;
@@ -1353,6 +1354,12 @@ public class MonkeySourceApe implements MonkeyEventSource {
     // Used for communication with Android Runtime
     private long lastEventPoppedTime = 0;
     private List<Long> eventPoppedTimes;
+
+    public void alertHalf() {
+        if (mAgent instanceof SataAgent) {
+            ((SataAgent) mAgent).alertHalf();
+        }
+    }
 
     /**
      * if the queue is empty, we generate events first

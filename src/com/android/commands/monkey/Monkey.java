@@ -1311,8 +1311,12 @@ public class Monkey {
         boolean systemCrashed = false;
 
         long currentTime = SystemClock.elapsedRealtime();
+        long halfTime = 0;
+        int halfCount = mCount / 2;
         if (mRunningMillis > 0) {
             mEndTime = currentTime + mRunningMillis;
+            halfTime = currentTime + mRunningMillis / 2;
+
 
             // We report everything
             mIgnoreCrashes = false;
@@ -1321,6 +1325,7 @@ public class Monkey {
         }
 
         long lastEventsEndTime = 0;
+        boolean onOneHalf = mEventSource instanceof MonkeySourceApe;
 
         // TO DO : The count should apply to each of the script file.
         while (!systemCrashed) {
@@ -1329,10 +1334,18 @@ public class Monkey {
                 if (cycleCounter >= mCount) {
                     break;
                 }
+                if (onOneHalf && cycleCounter >= halfCount) {
+                    ((MonkeySourceApe) mEventSource).alertHalf();
+                    onOneHalf = false;
+                }
             } else {
                 currentTime = SystemClock.elapsedRealtime();
                 if (currentTime > mEndTime) {
                     break;
+                }
+                if (onOneHalf && (cycleCounter >= halfCount || (halfTime != 0 && currentTime >= halfTime))) {
+                    ((MonkeySourceApe) mEventSource).alertHalf();
+                    onOneHalf = false;
                 }
             }
 

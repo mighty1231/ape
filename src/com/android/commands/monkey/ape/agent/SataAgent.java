@@ -173,6 +173,7 @@ public class SataAgent extends StatefulAgent {
 
     private int[] actionCounters;
     private ActivityNode backToActivity;
+    private boolean onOneHalf = true;
 
     public SataAgent(MonkeySourceApe ape, Graph graph) {
         this(ape, graph, defaultEpsilon);
@@ -296,10 +297,12 @@ public class SataAgent extends StatefulAgent {
             logActionSelected(resolved, SataEventType.TRIVIAL_ACTIVITY);
             return resolved;
         }
-        resolved = selectNewActionEarlyStageForward();
-        if (resolved != null) {
-            logActionSelected(resolved, SataEventType.EARLY_STAGE);
-            return resolved;
+        if (onOneHalf) {
+            resolved = selectNewActionEarlyStageForward();
+            if (resolved != null) {
+                logActionSelected(resolved, SataEventType.EARLY_STAGE);
+                return resolved;
+            }
         }
         resolved = selectNewActionForTrivialActivity();
         if (resolved != null) {
@@ -311,15 +314,17 @@ public class SataAgent extends StatefulAgent {
             logActionSelected(resolved, SataEventType.EARLY_STAGE);
             return resolved;
         }
-        resolved = selectNewActionWithTargetMethod();
-        if (resolved != null) {
-            logActionSelected(resolved, SataEventType.TARGET_METHOD);
-            return resolved;
-        }
-        resolved = selectNewActionWithTargetMethodNear();
-        if (resolved != null) {
-            logActionSelected(resolved, SataEventType.TARGET_METHOD_NEAR);
-            return resolved;
+        if (!onOneHalf) {
+            resolved = selectNewActionWithTargetMethod();
+            if (resolved != null) {
+                logActionSelected(resolved, SataEventType.TARGET_METHOD);
+                return resolved;
+            }
+            resolved = selectNewActionWithTargetMethodNear();
+            if (resolved != null) {
+                logActionSelected(resolved, SataEventType.TARGET_METHOD_NEAR);
+                return resolved;
+            }
         }
         resolved = selectNewActionEpsilonGreedyRandomly();
         if (resolved != null) {
@@ -822,6 +827,11 @@ public class SataAgent extends StatefulAgent {
             count += an.getVisitedCount();
         }
         return count / total;
+    }
+
+    public void alertHalf() {
+        Logger.iprintln("Half time/counter consumed");
+        onOneHalf = false;
     }
 
     protected ModelAction selectNewActionEarlyStageForwardGreedy() {
