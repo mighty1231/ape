@@ -43,6 +43,7 @@ public class State extends GraphElement {
     private ModelAction backAction;
 
     private List<GUITree> treeHistory;
+    private final Map<State, Double> stateToScore = new HashMap<>();
 
     public State(StateKey stateKey) {
         this.stateKey = stateKey;
@@ -196,7 +197,7 @@ public class State extends GraphElement {
         //     }
         // }
         if (chosen != null) {
-            if (random.nextDouble() < maxRatio) {
+            if (random.nextDouble() < maxRatio * 0.9) {
                 System.out.println("[APE_MT] Accept MET_TARGET action " + chosen +  " ratio " + maxRatio + " among size = " + actionCount);
             } else {
                 System.out.println("[APE_MT] Reject MET_TARGET action " + chosen +  " ratio " + maxRatio + " among size = " + actionCount);
@@ -211,7 +212,7 @@ public class State extends GraphElement {
         */
 
         /* make score to target */
-        Map<State, Integer> stateToScore = new HashMap<>();
+        stateToScore.clear();
         LinkedList<State> stateQueue = new LinkedList<>();
         Set<State> targetStates = graph.getMetTargetMethodStates();
         if (targetStates == null || targetStates.isEmpty()) {
@@ -223,33 +224,64 @@ public class State extends GraphElement {
 
         System.out.println("[APE_MT] targetStates.size = " + targetStates.size());
         for (State state: targetStates) {
-            stateToScore.put(state, 0);
-            System.out.println("[APE_MT] Cover state " + state + " as 0");
+            Set<StateTransition> transitions = graph.getOutStateTransitions(state);
+            double score = 0.0;
+            for (StateTransition transition: transitions) {
+                double new_score = transition.metTargetRatio();
+                if (new_score > score)
+                    score = new_score;
+            }
+            stateToScore.put(state, score);
+            System.out.println(String.format("[APE_MT] targetState %s score %.2f", state, score));
             stateQueue.addLast(state);
         }
 
-        // Evaluate distance to target state from each states.
-        // state that more GUITrees target should has higher priority
-        int currentScore = graph.size();
+        Comparator<State> stateComparator = new Comparator<State>() {
+            @Override
+            public int compare(State s1, State s2) {
+                double diff = stateToScore.get(s1) - stateToScore.get(s2);
+                if (diff > 0.0) return 1;
+                else if (diff < 0.0) return -1;
+                return 0;
+            }
+        };
+        double currentScore = -1.0;
+
+        // Candidate should have score bigger than epsilon
+        double chosenEpsilon = random.nextDouble();
+        Collections.sort(stateQueue, stateComparator);
+        boolean thisFound = false;
         while (!stateQueue.isEmpty()) {
             State state = stateQueue.removeFirst();
             if (state == this) {
                 currentScore = stateToScore.get(state);
-                break;
+                thisFound = true;
             }
-            int score = stateToScore.get(state) + 1;
+            System.out.println(String.format("[APE_MT_DEBUG] Score %.2f", stateToScore.get(state)));
+            if (thisFound)
+                continue;
+            double score = stateToScore.get(state) * 0.9;
+            if (score < chosenEpsilon)
+                continue;
             Set<StateTransition> transitions = graph.getInStateTransitions(state);
-            for (StateTransition transition : transitions) {
+            int insertion_idx = -1;
+            for (StateTransition transition: transitions) {
                 State source = transition.getSource();
-                if (source != null && !stateToScore.containsKey(source)) {
-                    stateToScore.put(source, score);
-                    if (!graph.isEntryState(source))
-                        stateQueue.addLast(source);
+                if (source == null || stateToScore.containsKey(source))
+                    continue;
+                if (insertion_idx == -1) {
+                    insertion_idx = Collections.binarySearch(stateQueue, source, stateComparator);
+                    if (insertion_idx < 0)
+                        insertion_idx = ~insertion_idx;
+                }
+                stateToScore.put(source, score);
+                if (!graph.isEntryState(source)) {
+                    stateQueue.add(insertion_idx, source);
                 }
             }
         }
 
-        if (currentScore == 0 || currentScore == graph.size()) { // target is unreachable now, or cannot be better
+        if (currentScore < 0.0) { // target is unreachable now
             return null;
         }
 
@@ -263,40 +295,34 @@ public class State extends GraphElement {
             if (target == null)
                 continue;
 
-            Integer targetScore = stateToScore.get(target);
-            if (targetScore == null) {
+            Double targetScore = stateToScore.get(target);
+            if (targetScore != null && targetScore > currentScore) {
                 System.out.println("[APE_MT] Transition candidate " + transition);
-                System.out.println(String.format("[APE_MT] State %s score undefined", target));
-            } else {
-                if (targetScore < currentScore) {
-                    System.out.println("[APE_MT] Transition candidate " + transition);
-                    System.out.println(String.format("[APE_MT] State %s score %d", target, targetScore));
-                    ModelAction candidate = transition.getAction();
-                    Name widget = candidate.getTarget();
-                    ActionType type = candidate.getType();
-                    boolean found = false;
-                    if (widget != null) {
-                        for (ModelAction action : actions) {
-                            if (widget.equals(action.getTarget()) && type.equals(action.getType())) {
-                                actionCandidates.add(action);
-                                found = true;
-                                break;
-                            }
-                        }
-                    } else {
-                        for (ModelAction action : actions) {
-                            if (action.requireTarget() == false && type.equals(action.getType())) {
-                                actionCandidates.add(action);
-                                found = true;
-                                break;
-                            }
+                System.out.println(String.format("[APE_MT] State %s score %.2f", target, targetScore));
+                ModelAction candidate = transition.getAction();
+                Name widget = candidate.getTarget();
+                ActionType type = candidate.getType();
+                boolean found = false;
+                if (widget != null) {
+                    for (ModelAction action : actions) {
+                        if (widget.equals(action.getTarget()) && type.equals(action.getType())) {
+                            actionCandidates.add(action);
+                            found = true;
+                            break;
                         }
                     }
-
-                    if (!found) {
-                        System.out.println(String.format("[APE_MT] Failed to find action with name %s type %s",
-                                widget, type));
+                } else {
+                    for (ModelAction action : actions) {
+                        if (action.requireTarget() == false && type.equals(action.getType())) {
+                            actionCandidates.add(action);
+                            found = true;
+                            break;
+                        }
                     }
+                }
+                if (!found) {
+                    System.out.println(String.format("[APE_MT] Failed to find action with name %s type %s",
+                            widget, type));
                 }
             }
         }
@@ -332,13 +358,8 @@ public class State extends GraphElement {
 
         if (!actionCandidates.isEmpty()) {
             ModelAction chosen = RandomHelper.randomPick(actionCandidates);
-            if (random.nextDouble()*Math.pow(1.2, currentScore) <= 1) {
-                System.out.println("[APE_MT] MET_TARGET_NEAR action " + chosen +  " currentScore " + currentScore + " among actions.size = " + actions.length);
-                graph.debug_trieprint();
-                return chosen;
-            }
-            System.out.println("[APE_MT] MET_TARGET_NEAR action found but distance " + currentScore + " is too long " + chosen);
-            return null;
+            System.out.println("[APE_MT] MET_TARGET_NEAR action " + chosen +  " currentScore " + currentScore + " among actions.size = " + actions.length);
+            return chosen;
         }
 
         return null;
@@ -721,14 +742,11 @@ public class State extends GraphElement {
         return ActionFilter.ENABLED_VALID.include(this.backAction);
     }
 
-    public int getMetTargetMethodScore() {
-        int score = 0;
-        int cnt = 0;
-        for (GUITree tree : treeHistory) {
-            if (tree.metTargetMethod())
-                score += 1;
-            cnt += 1;
+    public boolean hasMetTargetMethod() {
+        for (GUITree tree: treeHistory) {
+            if (tree.hasMetTargetMethod())
+                return true;
         }
-        return score;
+        return false;
     }
 }

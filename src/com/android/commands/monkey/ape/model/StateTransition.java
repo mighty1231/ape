@@ -12,7 +12,6 @@ public class StateTransition extends GraphElement {
      * 
      */
     private static final long serialVersionUID = -7293256167339096483L;
-    private static final double[] metTargetMethodScoresToProb = {1.0, 1.0/1.2, 1.0/1.2/1.2, 1.0/1.2/1.2/1.2, 1.0/1.2/1.2/1.2/1.2, 1.0/1.2/1.2/1.2/1.2/1.2};
 
     public final State source;
 
@@ -201,17 +200,17 @@ public class StateTransition extends GraphElement {
             return targetRatio;
         }
 
-        double totalValue = 0.0;
+        int totalValue = 0;
         for (GUITreeTransition gtransition: treeTransitions) {
             int score = gtransition.getMetTargetMethodScore();
             if (score >= 0) {
-                totalValue += metTargetMethodScoresToProb[score];
+                totalValue += 1;
             }
         }
 
         lenTransitions = sz;
         if (sz != 0)
-            targetRatio = totalValue / sz;
+            targetRatio = (double) totalValue / sz;
         else
             targetRatio = 0.0;
         return targetRatio;

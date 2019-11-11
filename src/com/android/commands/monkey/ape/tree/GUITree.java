@@ -56,13 +56,13 @@ public class GUITree implements Serializable {
 
     private transient Document document;
 
-    private boolean metTargetMethod;
+    private boolean hasMetTargetMethod;
 
     public GUITree(GUITreeNode guiTree, ComponentName activityName) {
         this.rootNode = guiTree;
         this.activityPackageName = activityName.getPackageName();
         this.activityClassName = activityName.getClassName();
-        this.metTargetMethod = false;
+        this.hasMetTargetMethod = false;
     }
 
     public Naming getCurrentNaming() {
@@ -333,11 +333,11 @@ public class GUITree implements Serializable {
         return currentNodes;
     }
 
-    public boolean metTargetMethod() {
-        return metTargetMethod;
+    public boolean hasMetTargetMethod() {
+        return hasMetTargetMethod;
     }
 
     public void setMetTargetMethod() {
-        metTargetMethod = true;
+        hasMetTargetMethod = true;
     }
 }

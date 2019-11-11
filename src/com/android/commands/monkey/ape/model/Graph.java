@@ -1293,7 +1293,7 @@ public class Graph implements Serializable {
             return;
         }
         GUITree lastTree = treeTransitionHistory.get(sz-2).getTarget();
-        if (lastTree.getCurrentState().getMetTargetMethodScore() > 0 || lastTree != lastTransition.getSource()) {
+        if (lastTree.getCurrentState().hasMetTargetMethod() || lastTree != lastTransition.getSource()) {
             subsequenceTrie.stateSplit();
         }
         subsequenceTrie.moveForward(lastTransition.getCurrentStateTransition());
@@ -1319,7 +1319,7 @@ public class Graph implements Serializable {
         subsequenceTrie.clear();
         GUITree cur = null;
         for (GUITreeTransition guiTransition: treeTransitionHistory) {
-            if (cur == null || cur.getCurrentState().getMetTargetMethodScore() > 0 || cur != guiTransition.getSource()) {
+            if (cur == null || cur.getCurrentState().hasMetTargetMethod() || cur != guiTransition.getSource()) {
                 subsequenceTrie.stateSplit();
             }
             subsequenceTrie.moveForward(guiTransition.getCurrentStateTransition());

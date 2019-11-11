@@ -854,7 +854,7 @@ public class MonkeySourceApe implements MonkeyEventSource {
 
                         // if the state became target state as first time, rebuild subsequence trie
                         boolean rebuild = false;
-                        if (lastGUITree.getCurrentState().getMetTargetMethodScore() == 0) { rebuild = true; }
+                        if (!lastGUITree.getCurrentState().hasMetTargetMethod()) { rebuild = true; }
                         lastTransition.setMetTargetMethodScore(0);
                         lastGUITree.setMetTargetMethod();
                         graph.addMetTargetMethodGUITree(lastGUITree);
