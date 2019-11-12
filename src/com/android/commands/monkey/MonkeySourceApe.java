@@ -1356,7 +1356,7 @@ public class MonkeySourceApe implements MonkeyEventSource {
     private List<Long> eventPoppedTimes;
 
     public void alertHalf() {
-        if (mAgent instanceof SataAgent) {
+        if (mAgent instanceof SataAgent && !mMonkeyServer.noGuide()) {
             ((SataAgent) mAgent).alertHalf();
         }
     }
