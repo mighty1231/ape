@@ -991,16 +991,20 @@ public class MonkeySourceApe implements MonkeyEventSource {
         if (mMonkeyServer != null) {
             String cmd[] = new String[] { "ls", "/data/data/" + packageName + "/mt_data/" };
             try {
-                String output = Utils.getProcessOutput(cmd);
-                int wait_count = 0;
-                while ((output != "" || output.contains("No such file or directory")) && wait_count < 15) {
-                    Thread.sleep(500);
-                    output = Utils.getProcessOutput(cmd);
-                    wait_count += 1;
-                }
-                if (wait_count == 15) {
-                    System.out.println("[APE_MT] Failed to wait pulling ...");
-                    System.out.println(output);
+                int loop_cnt = 0;
+                while (loop_cnt <= 3) {
+                    String output = Utils.getProcessOutput(cmd);
+                    int wait_count = 0;
+                    while ((output != "" || output.contains("No such file or directory")) && wait_count < 5) {
+                        Thread.sleep(500);
+                        output = Utils.getProcessOutput(cmd);
+                        wait_count += 1;
+                    }
+                    if (wait_count < 5)
+                        break;
+                    System.out.println("[APE_MT] Failed to wait pulling " + output);
+                    stopPackages();
+                    loop_cnt++;
                 }
             } catch (Exception e) {
                 e.printStackTrace();
