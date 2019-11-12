@@ -38,6 +38,12 @@ import com.android.commands.monkey.ape.utils.Config;
 import com.android.commands.monkey.ape.utils.Logger;
 import com.android.commands.monkey.ape.MonkeyServer;
 
+// for TestMode
+import com.android.commands.monkey.ape.model.Graph;
+import com.android.commands.monkey.ape.tree.GUITree;
+import com.android.commands.monkey.ape.tree.GUITreeAction;
+import com.android.commands.monkey.ape.tree.GUITreeTransition;
+
 import android.app.IActivityController;
 import android.app.IActivityManager;
 import android.content.ComponentName;
@@ -269,6 +275,7 @@ public class Monkey {
     private boolean mCommunicateWithART = false;
     private boolean mTargetMtdWithART = false;
     private boolean mNoMtdGuide = false;
+    private int mTestMode = 0;
 
     private MonkeyServer mMonkeyServer;
     private Thread mMonkeyServerThread;
@@ -1017,6 +1024,14 @@ public class Monkey {
                 } else if (opt.equals("--no-mtdguide")) {
                     // target but no induce. just for log
                     mNoMtdGuide = true;
+                } else if (opt.equals("--savetree")) {
+                    String treeFile = nextOptionData();
+                    Config.set("ape.test.treeFile", treeFile);
+                    mTestMode = 1;
+                } else if (opt.equals("--loadtree")) {
+                    String treeFile = nextOptionData();
+                    Config.set("ape.test.treeFile", treeFile);
+                    mTestMode = 2;
                 } else {
                     System.err.println("** Error: Unknown option: " + opt);
                     showUsage();
@@ -1041,6 +1056,15 @@ public class Monkey {
         if (mNoMtdGuide && !mCommunicateWithART) {
             System.err.println("** Error: To target methods, turn on --mt option");
             showUsage();
+            return false;
+        }
+
+        // TEST for read gui tree and state
+        if (mTestMode > 0) {
+            String modelFile = Config.get("ape.modelFile");
+            Graph graph = graph = Graph.readGraph(modelFile);
+
+            List<GUITreeTransition> transitions = graph.getTreeHistory();
             return false;
         }
 

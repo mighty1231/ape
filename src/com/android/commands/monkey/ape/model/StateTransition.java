@@ -27,9 +27,6 @@ public class StateTransition extends GraphElement {
 
     private int throttle = Integer.MAX_VALUE;
 
-    private int lenTransitions;
-    private double targetRatio;
-
     List<GUITreeTransition> treeTransitions;
 
     public StateTransition(State source, ModelAction action, State target) {
@@ -41,8 +38,6 @@ public class StateTransition extends GraphElement {
         this.source = source;
         this.target = target;
         this.action = action;
-        this.targetRatio = -1.0;
-        this.lenTransitions = 0;
     }
 
     public void updateThrottle(int throttle) {
@@ -194,25 +189,15 @@ public class StateTransition extends GraphElement {
     }
 
     public double metTargetRatio() {
-        /* @TODO modify here??? */
         int sz = treeTransitions.size();
-        if (lenTransitions == sz && targetRatio >= 0.0) {
-            return targetRatio;
-        }
+        if (sz == 0)
+            return 0.0;
 
         int totalValue = 0;
         for (GUITreeTransition gtransition: treeTransitions) {
-            int score = gtransition.getMetTargetMethodScore();
-            if (score >= 0) {
+            if (gtransition.hasMetTargetMethod())
                 totalValue += 1;
-            }
         }
-
-        lenTransitions = sz;
-        if (sz != 0)
-            targetRatio = (double) totalValue / sz;
-        else
-            targetRatio = 0.0;
-        return targetRatio;
+        return ((double) totalValue) / sz;
     }
 }

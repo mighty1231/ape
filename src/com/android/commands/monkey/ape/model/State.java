@@ -212,7 +212,6 @@ public class State extends GraphElement {
         */
 
         /* make score to target */
-        stateToScore.clear();
         LinkedList<State> stateQueue = new LinkedList<>();
         Set<State> targetStates = graph.getMetTargetMethodStates();
         if (targetStates == null || targetStates.isEmpty()) {
@@ -231,17 +230,20 @@ public class State extends GraphElement {
                 if (new_score > score)
                     score = new_score;
             }
+            if (score == 0.0) {
+                throw new RuntimeException("[APE_MT] score should not be 0");
+            }
             stateToScore.put(state, score);
             System.out.println(String.format("[APE_MT] targetState %s score %.2f", state, score));
             stateQueue.addLast(state);
         }
 
-        Comparator<State> stateComparator = new Comparator<State>() {
+        Comparator<State> reversedStateComparator = new Comparator<State>() {
             @Override
             public int compare(State s1, State s2) {
                 double diff = stateToScore.get(s1) - stateToScore.get(s2);
-                if (diff > 0.0) return 1;
-                else if (diff < 0.0) return -1;
+                if (diff > 0.0) return -1;
+                else if (diff < 0.0) return 1;
                 return 0;
             }
         };
@@ -249,7 +251,7 @@ public class State extends GraphElement {
 
         // Candidate should have score bigger than epsilon
         double chosenEpsilon = random.nextDouble();
-        Collections.sort(stateQueue, stateComparator);
+        Collections.sort(stateQueue, reversedStateComparator);
         boolean thisFound = false;
         while (!stateQueue.isEmpty()) {
             State state = stateQueue.removeFirst();
@@ -257,7 +259,6 @@ public class State extends GraphElement {
                 currentScore = stateToScore.get(state);
                 thisFound = true;
             }
-            System.out.println(String.format("[APE_MT_DEBUG] Score %.2f", stateToScore.get(state)));
             if (thisFound)
                 continue;
             double score = stateToScore.get(state) * 0.9;
@@ -269,12 +270,12 @@ public class State extends GraphElement {
                 State source = transition.getSource();
                 if (source == null || stateToScore.containsKey(source))
                     continue;
+                stateToScore.put(source, score);
                 if (insertion_idx == -1) {
-                    insertion_idx = Collections.binarySearch(stateQueue, source, stateComparator);
+                    insertion_idx = Collections.binarySearch(stateQueue, source, reversedStateComparator);
                     if (insertion_idx < 0)
                         insertion_idx = ~insertion_idx;
                 }
-                stateToScore.put(source, score);
                 if (!graph.isEntryState(source)) {
                     stateQueue.add(insertion_idx, source);
                 }
@@ -282,6 +283,7 @@ public class State extends GraphElement {
         }
 
         if (currentScore < 0.0) { // target is unreachable now
+            stateToScore.clear();
             return null;
         }
 
@@ -359,9 +361,11 @@ public class State extends GraphElement {
         if (!actionCandidates.isEmpty()) {
             ModelAction chosen = RandomHelper.randomPick(actionCandidates);
             System.out.println("[APE_MT] MET_TARGET_NEAR action " + chosen +  " currentScore " + currentScore + " among actions.size = " + actions.length);
+            stateToScore.clear();
             return chosen;
         }
 
+        stateToScore.clear();
         return null;
     }
 

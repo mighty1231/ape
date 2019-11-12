@@ -847,7 +847,7 @@ public class MonkeySourceApe implements MonkeyEventSource {
                     if (mMonkeyServer.metTargetMethods(last_action_generated_time)) {
                         // mark last transition/state
                         GUITreeTransition lastTransition = transitions.get(num_transitions - 1);
-                        GUITree lastGUITree = lastTransition.getTarget();
+                        GUITree lastGUITree = lastTransition.getSource();
                         if (lastGUITree == null) {
                             throw new RuntimeException("Should not reach here");
                         }
@@ -855,7 +855,7 @@ public class MonkeySourceApe implements MonkeyEventSource {
                         // if the state became target state as first time, rebuild subsequence trie
                         boolean rebuild = false;
                         if (!lastGUITree.getCurrentState().hasMetTargetMethod()) { rebuild = true; }
-                        lastTransition.setMetTargetMethodScore(0);
+                        lastTransition.setMetTargetMethod();
                         lastGUITree.setMetTargetMethod();
                         graph.addMetTargetMethodGUITree(lastGUITree);
                         if (rebuild) {
@@ -1356,7 +1356,7 @@ public class MonkeySourceApe implements MonkeyEventSource {
     private List<Long> eventPoppedTimes;
 
     public void alertHalf() {
-        if (mAgent instanceof SataAgent && !mMonkeyServer.noGuide()) {
+        if (mAgent instanceof SataAgent && mMonkeyServer != null && !mMonkeyServer.noGuide()) {
             ((SataAgent) mAgent).alertHalf();
         }
     }

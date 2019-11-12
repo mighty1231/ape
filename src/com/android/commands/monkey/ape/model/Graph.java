@@ -1434,7 +1434,7 @@ public class Graph implements Serializable {
         for (GUITree tree : metTargetMethodGUITrees) {
             State state = tree.getCurrentState();
             if (state == null) {
-                System.out.println("[APE_MT] state is null from GUITree");
+                System.out.println("[APE_MT_DEBUG] state is null from GUITree");
             } else {
                 states.add(state);
             }
