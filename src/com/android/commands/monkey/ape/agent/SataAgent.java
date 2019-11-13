@@ -503,7 +503,13 @@ public class SataAgent extends StatefulAgent {
             }
 
             // r(x') and q(x_n|x')
-            double targetScore = stateToScore.get(xprime);
+            Double targetScoreObj = stateToScore.get(xprime);
+            if (targetScoreObj == null) {
+                System.out.println(String.format("[APE_MT_DEBUG] MetropolisHastings reject"));
+                graph.addMetropolisHastingsRejectCount();
+                count += 1;
+            }
+            double targetScore = targetScoreObj;
             Double cached_qprime = qprimeCache.get(xprime);
             double qprime = 0.0;
             if (cached_qprime == null) {
