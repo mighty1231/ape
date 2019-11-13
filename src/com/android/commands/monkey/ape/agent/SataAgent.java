@@ -6,6 +6,8 @@ import static com.android.commands.monkey.ape.utils.Config.fallbackToGraphTransi
 import static com.android.commands.monkey.ape.utils.Config.fillTransitionsByHistory;
 import static com.android.commands.monkey.ape.utils.Config.trivialActivityRankThreshold;
 import static com.android.commands.monkey.ape.utils.Config.useActionDiffer;
+import static com.android.commands.monkey.ape.utils.Config.mhratio1;
+import static com.android.commands.monkey.ape.utils.Config.mhratio2;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -433,7 +435,11 @@ public class SataAgent extends StatefulAgent {
                 currentScore = stateToScore.get(state);
                 thisFound = true;
             }
-            double score = stateToScore.get(state) * 0.9;
+            double score;
+            if (targetStates.contains(state))
+                score = stateToScore.get(state) * mhratio1;
+            else
+                score = stateToScore.get(state) * mhratio2;
             Set<StateTransition> transitions = graph.getInStateTransitions(state);
             int insertion_idx = -1;
             for (StateTransition transition: transitions) {
@@ -508,6 +514,7 @@ public class SataAgent extends StatefulAgent {
                 System.out.println(String.format("[APE_MT_DEBUG] MetropolisHastings reject"));
                 graph.addMetropolisHastingsRejectCount();
                 count += 1;
+                continue;
             }
             double targetScore = targetScoreObj;
             Double cached_qprime = qprimeCache.get(xprime);

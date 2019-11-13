@@ -96,6 +96,10 @@ public class Config {
 
     public static final boolean usePatchNamer = Config.getBoolean("ape.usePatchNamer", true);
 
+    public static final double mhratio1 = Config.getDouble("ape.mt.mhratio1", 0.4);
+    public static final double mhratio2 = Config.getDouble("ape.mt.mhratio2", 0.8);
+
+
     private static void loadConfiguration(String fileName) {
         File configFile = new File(fileName);
         if (configFile.exists()) {
