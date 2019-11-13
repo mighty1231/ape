@@ -3,6 +3,7 @@ package com.android.commands.monkey.ape;
 import java.util.HashMap;
 import java.util.Map;
 
+import com.android.commands.monkey.ape.Subsequence;
 import com.android.commands.monkey.ape.model.State;
 import com.android.commands.monkey.ape.model.StateTransition;
 import com.android.commands.monkey.ape.utils.Config;
@@ -56,19 +57,21 @@ public class SubsequenceTrie {
     private int totalSize;
 
     private int observingSeqLength;
-    private int seqCountLimit;
+    private double seqCountLimitRatio;
+    private int splitCount;
 
     private SubsequenceTrieNode curNode;
     private int curLength;
 
-    public SubsequenceTrie(int observingSeqLength, int seqCountLimit) {
-        System.out.println(String.format("[APE_MT_SS] seqLength %d seqCountLimit %d", observingSeqLength, seqCountLimit));
+    public SubsequenceTrie(int observingSeqLength, double seqCountLimitRatio) {
+        System.out.println(String.format("[APE_MT_SS] seqLength %d seqCountLimitRatio %.2f", observingSeqLength, seqCountLimitRatio));
         root = new SubsequenceTrieNode(null);
         this.observingSeqLength = observingSeqLength;
-        this.seqCountLimit = seqCountLimit;
+        this.seqCountLimitRatio = seqCountLimitRatio;
         curNode = root;
         curLength = 0;
         totalSize = 0;
+        splitCount = 0;
     }
 
     public void clear() {
@@ -76,6 +79,7 @@ public class SubsequenceTrie {
         curNode = root;
         curLength = 0;
         totalSize = 0;
+        splitCount = 0;
     }
 
     public void moveForward(StateTransition transition) {
@@ -99,8 +103,26 @@ public class SubsequenceTrie {
         HashMap<StateTransition, SubsequenceTrieNode> children = curNode.getChildren();
         if (!children.containsKey(transition))
             return true;
-        if (children.get(transition).getCount() < seqCountLimit)
+        int limit = (int) (splitCount * seqCountLimitRatio);
+        if (limit <= 2)
             return true;
+        if (children.get(transition).getCount() < limit)
+            return true;
+        return false;
+    }
+
+    public boolean checkNextSubsequence(Subsequence subsequence) {
+        SubsequenceTrieNode tempCurNode = curNode;
+        for (StateTransition edge : subsequence.getEdges()) {
+            if (edge.getSource() != tempCurNode.getState()) {
+                System.out.println("[APE_MT_WARNING] subsequence does not match on current state of trie");
+                return true;
+            }
+            HashMap<StateTransition, SubsequenceTrieNode> children = tempCurNode.getChildren();
+            if (!children.containsKey(edge)) {
+                return true;
+            }
+        }
         return false;
     }
 
@@ -119,5 +141,6 @@ public class SubsequenceTrie {
         curNode.incCount();
         curNode = root;
         curLength = 0;
+        splitCount++;
     }
 }

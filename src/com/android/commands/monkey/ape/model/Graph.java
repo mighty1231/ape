@@ -120,9 +120,9 @@ public class Graph implements Serializable {
     private List<GUITree> metTargetMethodGUITrees = new ArrayList<>();
 
     public Graph() {
-        int observingSeqLength = Config.getInteger("ape.mt.observingSeqLength", 10);
-        int seqCountLimit = Config.getInteger("ape.mt.seqCountLimit", 3);
-        subsequenceTrie = new SubsequenceTrie(observingSeqLength, seqCountLimit);
+        int observingSeqLength = Config.getInteger("ape.mt.observingSeqLength", 6);
+        double seqCountLimitRatio = Config.getDouble("ape.mt.seqCountLimitRatio", 0.10);
+        subsequenceTrie = new SubsequenceTrie(observingSeqLength, seqCountLimitRatio);
     }
 
     public int size() {

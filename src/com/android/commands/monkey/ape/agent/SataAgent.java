@@ -173,7 +173,7 @@ public class SataAgent extends StatefulAgent {
 
     private int[] actionCounters;
     private ActivityNode backToActivity;
-    private boolean onOneHalf = true;
+    private boolean targetMethodActivated = false;
 
     public SataAgent(MonkeySourceApe ape, Graph graph) {
         this(ape, graph, defaultEpsilon);
@@ -297,7 +297,7 @@ public class SataAgent extends StatefulAgent {
             logActionSelected(resolved, SataEventType.TRIVIAL_ACTIVITY);
             return resolved;
         }
-        if (onOneHalf) {
+        if (!targetMethodActivated) {
             resolved = selectNewActionEarlyStageForward();
             if (resolved != null) {
                 logActionSelected(resolved, SataEventType.EARLY_STAGE);
@@ -309,14 +309,14 @@ public class SataAgent extends StatefulAgent {
             logActionSelected(resolved, SataEventType.TRIVIAL_ACTIVITY);
             return resolved;
         }
-        if (onOneHalf) {
+        if (!targetMethodActivated) {
             resolved = selectNewActionEarlyStageBackward();
             if (resolved != null) {
                 logActionSelected(resolved, SataEventType.EARLY_STAGE);
                 return resolved;
             }
         }
-        if (!onOneHalf) {
+        if (targetMethodActivated) {
             resolved = selectNewActionWithTargetMethod();
             if (resolved != null) {
                 logActionSelected(resolved, SataEventType.TARGET_METHOD);
@@ -844,7 +844,7 @@ public class SataAgent extends StatefulAgent {
 
     public void alertHalf() {
         Logger.iprintln("Half time/counter consumed");
-        onOneHalf = false;
+        targetMethodActivated = true;
     }
 
     protected ModelAction selectNewActionEarlyStageForwardGreedy() {
