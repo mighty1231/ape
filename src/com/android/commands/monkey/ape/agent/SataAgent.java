@@ -442,7 +442,6 @@ public class SataAgent extends StatefulAgent {
                 State source = transition.getSource();
                 if (source == null || stateToScore.containsKey(source))
                     continue;
-                System.out.println(String.format("[APE_MT_DEBUG] fill score %.3f on %s", score, source));
                 stateToScore.put(source, score);
                 if (insertion_idx == -1) {
                     insertion_idx = Collections.binarySearch(stateQueue, source, reversedStateComparator);
@@ -454,7 +453,7 @@ public class SataAgent extends StatefulAgent {
         }
         // unreachable to target
         if (thisFound == false) {
-            System.out.println("[APE_MT_WARNING] Curretly no way to go to target. Graph is reducible");
+            System.out.println("[APE_MT_WARNING] There is no way to go to target. Graph is REDUCIBLE");
             stateToScore.clear();
             return null;
         }
@@ -465,7 +464,7 @@ public class SataAgent extends StatefulAgent {
         fillMHTransitions(newState, transitionToAction, transitionToScore);
 
         if (transitionToAction.isEmpty()) {
-            System.out.println("[APE_MT_WARNING] No transition found");
+            System.out.println("[APE_MT_WARNING] Transition is not found");
             stateToScore.clear();
             return null;
         }
@@ -481,7 +480,6 @@ public class SataAgent extends StatefulAgent {
             double q = 0.0;
             StateTransition chosenTransition = null;
             StateTransition lastTransition = null;
-            System.out.println("[APE_MT_DEBUG] Choose candidate transition/state");
             for (Map.Entry<StateTransition, Double> entry: transitionToScore.entrySet()) {
                 lastTransition = entry.getKey();
                 cur += entry.getValue();
@@ -494,7 +492,7 @@ public class SataAgent extends StatefulAgent {
             if (chosenTransition == null) {
                 chosenTransition = lastTransition;
             }
-            System.out.println(String.format("[APE_MT_DEBUG] new transition = %s with prob %.3f", chosenTransition, transitionToScore.get(chosenTransition)));
+            System.out.println(String.format("[APE_MT_DEBUG] candidate transition = %s with prob %.3f", chosenTransition, transitionToScore.get(chosenTransition)));
 
             // toss coin and choose reject or not
             // alpha = min(1, (r(x') * q(x_n|x')) / (r(x_n) * q(x'|x_n)))
@@ -503,12 +501,13 @@ public class SataAgent extends StatefulAgent {
                 // if xprime = x, alpha = 1
                 stateToScore.clear();
                 System.out.println(String.format("[APE_MT_DEBUG] MetropolisHastings (rejectCounter=%d) consumed %d ms", count, System.currentTimeMillis()-time_before));
-                return action;
+                return transitionToAction.get(chosenTransition);
             }
 
+            // r(x') and q(x_n|x')
             double targetScore = stateToScore.get(xprime);
-            double qprime = 0.0;
             Double cached_qprime = qprimeCache.get(xprime);
+            double qprime = 0.0;
             if (cached_qprime == null) {
                 Map<StateTransition, ModelAction> transitionToAction_fromTarget = new HashMap<>();
                 Map<StateTransition, Double> transitionToScore_fromTarget = new HashMap<>();
@@ -524,14 +523,8 @@ public class SataAgent extends StatefulAgent {
             }
             double alpha = Math.min(1.0, targetScore * qprime / (currentScore * q));
             double u = random.nextDouble();
-            System.out.println(String.format("[APE_MT_DEBUG] targetScore %.3f q' %.3f", targetScore, qprime));
-            System.out.println(String.format("[APE_MT_DEBUG] currentScore %.3f q %.3f", currentScore, q));
-            System.out.println(String.format("[APE_MT_DEBUG] alpha %.3f u %.3f", alpha, u));
             if (u <= alpha) {
                 ModelAction action = transitionToAction.get(chosenTransition);
-                System.out.println("[APE_MT_DEBUG] MetropolisHastings accept action " + action);
-                System.out.println("[APE_MT_DEBUG] MetropolisHastings transition " + chosenTransition);
-
                 stateToScore.clear();
                 System.out.println(String.format("[APE_MT_DEBUG] MetropolisHastings (rejectCounter=%d) consumed %d ms", count, System.currentTimeMillis()-time_before));
                 return action;
@@ -543,7 +536,7 @@ public class SataAgent extends StatefulAgent {
         }
 
         System.out.println(String.format("[APE_MT_DEBUG] MetropolisHastings (rejectCounter=%d) consumed %d ms", count, System.currentTimeMillis()-time_before));
-        System.out.println("[APE_MT_WARNING] Currently graph seems to be periodic");
+        System.out.println("[APE_MT_WARNING] Graph seems to be PERIODIC");
         stateToScore.clear();
         return null;
 
