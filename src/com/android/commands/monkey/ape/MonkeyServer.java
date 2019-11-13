@@ -421,6 +421,7 @@ public class MonkeyServer implements Runnable {
                     target.writeTo(os);
                 }
             } catch (IOException e) {
+                e.printStackTrace();
                 throw new RuntimeException("write methods");
             }
 
