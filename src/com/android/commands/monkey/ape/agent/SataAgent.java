@@ -351,37 +351,35 @@ public class SataAgent extends StatefulAgent {
     }
 
     public void fillMHTransitions(State state, Map<StateTransition, ModelAction> transitionToAction, Map<StateTransition, Double> transitionToScore) {
-        // mapping check statetransition <-> actions
         List<ModelAction> actions = state.getActions();
         Set<StateTransition> transitions = getGraph().getOutStateTransitions(state);
         int totalPriority = 0;
-        double dTotalPriority = 0;
-        System.out.println(String.format("[APE_MT_DEBUG] Filling MH over %s", state));
-        System.out.println(String.format("[APE_MT_DEBUG] # transitions %d # actions %d", transitions.size(), actions.size()));
         for (StateTransition transition: transitions) {
-            boolean found = false;
             for (ModelAction action: actions) {
                 if (transition.getAction() == action) {
-                    transitionToAction.put(transition, action);
-
                     int priority = getActionBasePriority(action.getType());
-                    double ratio = transition.metTargetRatio();
-                    double curWeight = MET_TARGET_WEIGHT * ratio + priority;
-                    transitionToScore.put(transition, curWeight);
+                    transitionToAction.put(transition, action);
+                    transitionToScore.put(transition, (double) priority);
                     totalPriority += priority;
-                    dTotalPriority += curWeight;
-                    found = true;
                     break;
                 }
             }
-            if (!found) {
-                System.out.println("[APE_MT_DEBUG] Failed to find corresponding action for the transition");
-            }
         }
 
+        // make weight on met targeted methods
+        double dTotalPriority = (double) totalPriority;
+        for (Map.Entry<StateTransition, Double> entry : transitionToScore.entrySet()) {
+            double ratio = entry.getKey().metTargetRatio();
+            if (ratio == 0.0)
+                continue;
+            double curWeight = ratio * (MET_TARGET_WEIGHT * totalPriority);
+            entry.setValue(entry.getValue() + curWeight);
+            dTotalPriority += curWeight;
+        }
+
+        // normalize
         for (Map.Entry<StateTransition, Double> entry : transitionToScore.entrySet()) {
             entry.setValue(entry.getValue() / dTotalPriority);
-            System.out.println(String.format("[APE_MT_DEBUG] val %.3f %s", entry.getValue(), entry.getKey()));
         }
     }
 
