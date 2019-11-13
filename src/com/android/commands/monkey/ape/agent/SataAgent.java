@@ -12,9 +12,13 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Random;
 import java.util.Set;
 
 import com.android.commands.monkey.MonkeySourceApe;
@@ -160,7 +164,7 @@ public class SataAgent extends StatefulAgent {
 
     static enum SataEventType {
         TRIVIAL_ACTIVITY,
-        SATURATED_STATE, USE_BUFFER, EARLY_STAGE, TARGET_METHOD, TARGET_METHOD_NEAR,
+        SATURATED_STATE, USE_BUFFER, EARLY_STAGE, MCMC,
         EPSILON_GREEDY, RANDOM, NULL, BUFFER_LOSS, FILL_BUFFER, BAD_STATE;
     }
 
@@ -168,12 +172,14 @@ public class SataAgent extends StatefulAgent {
      * Control the exploration and exploitation. The idea is borrowed from reinforcement learning.
      */
     private double epsilon;
+    private static final int MET_TARGET_WEIGHT = 8;
 
     private StateActionDiffer actionDiffer = new StateActionDiffer();
 
     private int[] actionCounters;
     private ActivityNode backToActivity;
     private boolean targetMethodActivated = false;
+    private final Map<State, Double> stateToScore = new HashMap<>();
 
     public SataAgent(MonkeySourceApe ape, Graph graph) {
         this(ape, graph, defaultEpsilon);
@@ -285,6 +291,8 @@ public class SataAgent extends StatefulAgent {
                     Logger.iformat("- %s", action);
                 }
             }
+            if (targetMethodActivated && !getGraph().hasMetTargetMethod())
+                System.out.println("[APE_MT_WARNING] TargetMethod activated but target method is not found");
         }
         Action resolved = null;
         resolved = selectNewActionFromBuffer();
@@ -297,42 +305,24 @@ public class SataAgent extends StatefulAgent {
             logActionSelected(resolved, SataEventType.TRIVIAL_ACTIVITY);
             return resolved;
         }
-        if (!targetMethodActivated) {
-            resolved = selectNewActionEarlyStageForward();
-            if (resolved != null) {
-                logActionSelected(resolved, SataEventType.EARLY_STAGE);
-                return resolved;
-            }
-        }
-        resolved = selectNewActionForTrivialActivity();
-        if (resolved != null) {
-            logActionSelected(resolved, SataEventType.TRIVIAL_ACTIVITY);
-            return resolved;
-        }
-        if (!targetMethodActivated) {
-            resolved = selectNewActionEarlyStageBackward();
-            if (resolved != null) {
-                logActionSelected(resolved, SataEventType.EARLY_STAGE);
-                return resolved;
-            }
-        }
-        if (targetMethodActivated) {
-            resolved = selectNewActionWithTargetMethod();
-            if (resolved != null) {
-                logActionSelected(resolved, SataEventType.TARGET_METHOD);
-                return resolved;
-            }
-            resolved = selectNewActionWithTargetMethodNear();
-            if (resolved != null) {
-                logActionSelected(resolved, SataEventType.TARGET_METHOD_NEAR);
-                return resolved;
-            }
-            resolved = selectNewActionEarlyStageForward();
-            if (resolved != null) {
-                logActionSelected(resolved, SataEventType.EARLY_STAGE);
-                return resolved;
-            }
 
+        if (targetMethodActivated && getGraph().hasMetTargetMethod()) {
+            resolved = selectNewActionMetropolisHastings();
+            if (resolved != null) {
+                logActionSelected(resolved, SataEventType.MCMC);
+                return resolved;
+            }
+        } else {
+            resolved = selectNewActionEarlyStageForward();
+            if (resolved != null) {
+                logActionSelected(resolved, SataEventType.EARLY_STAGE);
+                return resolved;
+            }
+            resolved = selectNewActionForTrivialActivity();
+            if (resolved != null) {
+                logActionSelected(resolved, SataEventType.TRIVIAL_ACTIVITY);
+                return resolved;
+            }
             resolved = selectNewActionEarlyStageBackward();
             if (resolved != null) {
                 logActionSelected(resolved, SataEventType.EARLY_STAGE);
@@ -360,28 +350,182 @@ public class SataAgent extends StatefulAgent {
         logEvent(SataEventType.BUFFER_LOSS);
     }
 
-    protected ModelAction selectNewActionWithTargetMethod() {
-        // with probability
-        // double v = ape.getRandom().nextDouble();
-        // if (v < 0.8) {
-        //     return newState.pickWithTargetMethod(getGraph(), ape.getRandom());
-        // } else {
-        //    return null;
-        // }
-        return newState.pickWithTargetMethod(getGraph(), ape.getRandom());
+    public void fillMHTransitions(State state, Map<StateTransition, ModelAction> transitionToAction, Map<StateTransition, Double> transitionToScore) {
+        // mapping check statetransition <-> actions
+        List<ModelAction> actions = state.getActions();
+        Set<StateTransition> transitions = getGraph().getOutStateTransitions(state);
+        int totalPriority = 0;
+        double dTotalPriority = 0;
+        System.out.println(String.format("[APE_MT_DEBUG] # transitions %d # actions %d", transitions.size(), actions.size()));
+        for (StateTransition transition: transitions) {
+            boolean found = false;
+            for (ModelAction action: actions) {
+                if (transition.getAction() == action) {
+                    transitionToAction.put(transition, action);
+
+                    int priority = getActionBasePriority(action.getType());
+                    double ratio = transition.metTargetRatio();
+                    double curWeight = MET_TARGET_WEIGHT * ratio + priority;
+                    transitionToScore.put(transition, curWeight);
+                    totalPriority += priority;
+                    dTotalPriority += curWeight;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                System.out.println("[APE_MT_DEBUG] Failed to find corresponding action for the transition");
+            }
+        }
+
+        for (Map.Entry<StateTransition, Double> entry : transitionToScore.entrySet()) {
+            entry.setValue(entry.getValue() / dTotalPriority);
+        }
     }
 
-    protected ModelAction selectNewActionWithTargetMethodNear() {
-        // with probability
-        // double v = ape.getRandom().nextDouble();
-        // if (v < 0.95) {
-        //     return newState.pickWithTargetMethodNear(getGraph(), ape.getRandom());
-        // } else {
-        //    return null;
-        // }
-        return newState.pickWithTargetMethodNear(getGraph(), ape.getRandom());
-    }
+    protected ModelAction selectNewActionMetropolisHastings() {
+        // newState;
+        Graph graph = getGraph();
+        Random random = ape.getRandom();
+        List<ModelAction> actions = newState.getActions();
+        if (actions.size() == 0)
+            return null;
 
+        LinkedList<State> stateQueue = new LinkedList<>();
+        Set<State> targetStates = graph.getMetTargetMethodStates();
+        if (targetStates == null || targetStates.isEmpty()) {
+            System.out.println("[APE_MT] targetStates.size = 0");
+            return null;
+        }
+        System.out.println("[APE_MT] targetStates.size = " + targetStates.size());
+
+
+        // fill scores for all states
+        for (State state: targetStates) {
+            Set<StateTransition> transitions = graph.getOutStateTransitions(state);
+            double score = 0.0;
+            for (StateTransition transition: transitions) {
+                double new_score = transition.metTargetRatio();
+                if (new_score > score)
+                    score = new_score;
+            }
+            if (score == 0.0) { throw new RuntimeException("[APE_MT] score should not be 0"); }
+            stateToScore.put(state, score);
+            System.out.println(String.format("[APE_MT] targetState %s score %.2f", state, score));
+            stateQueue.addLast(state);
+        }
+        Comparator<State> reversedStateComparator = new Comparator<State>() {
+            @Override
+            public int compare(State s1, State s2) {
+                double diff = stateToScore.get(s1) - stateToScore.get(s2);
+                if (diff > 0.0) return -1;
+                else if (diff < 0.0) return 1;
+                return 0;
+            }
+        };
+        Collections.sort(stateQueue, reversedStateComparator);
+        double currentScore = -1.0;
+        boolean thisFound = false;
+        while (!stateQueue.isEmpty()) {
+            State state = stateQueue.removeFirst();
+            if (state == newState) {
+                currentScore = stateToScore.get(state);
+                thisFound = true;
+            }
+            double score = stateToScore.get(state) * 0.9;
+            Set<StateTransition> transitions = graph.getInStateTransitions(state);
+            int insertion_idx = -1;
+            for (StateTransition transition: transitions) {
+                State source = transition.getSource();
+                if (source == null || stateToScore.containsKey(source))
+                    continue;
+                stateToScore.put(source, score);
+                if (insertion_idx == -1) {
+                    insertion_idx = Collections.binarySearch(stateQueue, source, reversedStateComparator);
+                    if (insertion_idx < 0)
+                        insertion_idx = ~insertion_idx;
+                }
+                stateQueue.add(insertion_idx, source);
+            }
+        }
+        // unreachable to target
+        if (thisFound == false) {
+            System.out.println("[APE_MT_WARNING] Curretly no way to go to target. Graph is reducible");
+            stateToScore.clear();
+            return null;
+        }
+
+        // evaluate next transitions
+        Map<StateTransition, ModelAction> transitionToAction = new HashMap<>();
+        Map<StateTransition, Double> transitionToScore = new HashMap<>();
+        fillMHTransitions(newState, transitionToAction, transitionToScore);
+
+        if (transitionToAction.isEmpty()) {
+            System.out.println("[APE_MT_WARNING] No transition found");
+            stateToScore.clear();
+            return null;
+        }
+
+        boolean accepted = false;
+        int count = 0;
+        long time_before = System.currentTimeMillis();
+        while (accepted || count < 30) {
+            // choose x'
+            double randomValue = random.nextDouble();
+            double cur = 0.0;
+            double q = 0.0;
+            StateTransition chosenTransition = null;
+            StateTransition lastTransition = null;
+            for (Map.Entry<StateTransition, Double> entry: transitionToScore.entrySet()) {
+                lastTransition = entry.getKey();
+                cur += entry.getValue();
+                if (cur > randomValue) {
+                    chosenTransition = entry.getKey();
+                    q = entry.getValue();
+                    break;
+                }
+            }
+            if (chosenTransition == null) {
+                System.out.println("[APE_MT_WARNING] transition be not chosen on random");
+                chosenTransition = lastTransition;
+            }
+            System.out.println(String.format("[APE_MT_DEBUG] transition candidate with prob %.3f", transitionToScore.get(chosenTransition)));
+
+            // toss coin and choose reject or not
+            // alpha = min(1, (r(x') * q(x_n|x')) / (r(x_n) * q(x'|x_n)))
+            State target = chosenTransition.getTarget();
+            double targetScore = stateToScore.get(target);
+            Map<StateTransition, ModelAction> transitionToAction_fromTarget = new HashMap<>();
+            Map<StateTransition, Double> transitionToScore_fromTarget = new HashMap<>();
+            fillMHTransitions(newState, transitionToAction_fromTarget, transitionToScore_fromTarget);
+            double qprime = 0.0;
+            for (Map.Entry<StateTransition, Double> entry: transitionToScore_fromTarget.entrySet()) {
+                if (entry.getKey().getTarget() == newState) {
+                    qprime += entry.getValue();
+                }
+            }
+
+            double alpha = Math.min(1.0, targetScore * qprime / (currentScore * q));
+            double u = random.nextDouble();
+            if (u <= alpha) {
+                ModelAction action = transitionToAction.get(chosenTransition);
+                System.out.println("[APE_MT_DEBUG] MetropolisHastings accept action " + action);
+                System.out.println("[APE_MT_DEBUG] MetropolisHastings transition " + chosenTransition);
+
+                stateToScore.clear();
+                System.out.println(String.format("[APE_MT_DEBUG] MetropolisHastings (rejectCounter=%d) consumed %d ms", count, System.currentTimeMillis()-time_before));
+                return action;
+            } else {
+                System.out.println(String.format("[APE_MT_DEBUG] MetropolisHastings reject"));
+                graph.addMetropolisHastingsRejectCount();
+            }
+        }
+
+        System.out.println(String.format("[APE_MT_DEBUG] MetropolisHastings (rejectCounter=%d) consumed %d ms", count, System.currentTimeMillis()-time_before));
+        stateToScore.clear();
+        return null;
+
+    }
     protected ModelAction selectNewActionEpsilonGreedyRandomly() {
         ModelAction back = newState.getBackAction();
         if (back.isValid()) {

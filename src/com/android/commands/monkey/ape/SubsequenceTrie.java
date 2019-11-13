@@ -104,8 +104,8 @@ public class SubsequenceTrie {
         if (!children.containsKey(transition))
             return true;
         int limit = (int) (splitCount * seqCountLimitRatio);
-        if (limit <= 2)
-            return true;
+        if (limit < 3)
+            limit = 3;
         if (children.get(transition).getCount() < limit)
             return true;
         return false;
@@ -113,15 +113,29 @@ public class SubsequenceTrie {
 
     public boolean checkNextSubsequence(Subsequence subsequence) {
         SubsequenceTrieNode tempCurNode = curNode;
+        SubsequenceTrieNode nextNode = null;
+        int limit = (int) (splitCount * seqCountLimitRatio);
+        if (limit < 3)
+            limit = 3;
         for (StateTransition edge : subsequence.getEdges()) {
             if (edge.getSource() != tempCurNode.getState()) {
-                System.out.println("[APE_MT_WARNING] subsequence does not match on current state of trie");
+                System.out.println("[APE_MT_WARNING] checkNextSubsequence(): subsequence does not match on current node");
                 return true;
             }
             HashMap<StateTransition, SubsequenceTrieNode> children = tempCurNode.getChildren();
             if (!children.containsKey(edge)) {
-                return true;
+                children = root.getChildren();
+                if (!children.containsKey(edge)) {
+                    System.out.println("[APE_MT_WARNING] checkNextSubsequence(): split but no way to get next node");
+                    return true;
+                }
+                nextNode = children.get(edge);
+            } else {
+                nextNode = children.get(edge);
             }
+            if (children.get(edge).getCount() >= limit)
+                return false;
+            tempCurNode = nextNode;
         }
         return false;
     }

@@ -118,6 +118,7 @@ public class Graph implements Serializable {
     private boolean verbose = true;
 
     private List<GUITree> metTargetMethodGUITrees = new ArrayList<>();
+    private int metropolisHastingsRejectCount = 0;
 
     public Graph() {
         int observingSeqLength = Config.getInteger("ape.mt.observingSeqLength", 6);
@@ -1308,6 +1309,11 @@ public class Graph implements Serializable {
         return ret;
     }
 
+    // return whether or not it can be chosen as next subsequence
+    public boolean checkNextSubsequence(Subsequence subsequence) {
+        return subsequenceTrie.checkNextSubsequence(subsequence);
+    }
+
     public void debug_trieprint() {
         subsequenceTrie.debug_print();
     }
@@ -1405,25 +1411,12 @@ public class Graph implements Serializable {
         return results;
     }
 
-    public Set<StateTransition> getTransitionSetByName(ModelAction action) {
-        if (!action.requireTarget()) {
-            return Collections.emptySet();
-        }
-        Set<ModelAction> actions = Utils.getFromMapMap(nameToActions, action.getState().getActivity(), action.getTarget());
-        if (actions == null || actions.isEmpty()) {
-            return Collections.emptySet();
-        }
-        Set<StateTransition> results = new HashSet<StateTransition>();
-        for (ModelAction a : actions) {
-            if (a.getType().equals(action.getType())) {
-                results.addAll(getOutStateTransitions(a));
-            }
-        }
-        return results;
-    }
-
     public void addMetTargetMethodGUITree(GUITree tree) {
         metTargetMethodGUITrees.add(tree);
+    }
+
+    public boolean hasMetTargetMethod() {
+        return !metTargetMethodGUITrees.isEmpty();
     }
 
     public Set<State> getMetTargetMethodStates() {
@@ -1440,5 +1433,9 @@ public class Graph implements Serializable {
             }
         }
         return states;
+    }
+
+    public void addMetropolisHastingsRejectCount() {
+        metropolisHastingsRejectCount++;
     }
 }
