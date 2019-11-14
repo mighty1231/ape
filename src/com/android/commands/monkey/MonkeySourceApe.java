@@ -989,9 +989,10 @@ public class MonkeySourceApe implements MonkeyEventSource {
 
     public void clearPackage(String packageName) {
         if (mMonkeyServer != null) {
+            long stampBefore = System.currentTimeMillis();
             String cmd[] = new String[] { "ls", "/data/data/" + packageName + "/mt_data/" };
+            int loop_cnt = 0;
             try {
-                int loop_cnt = 0;
                 while (loop_cnt <= 3) {
                     String output = Utils.getProcessOutput(cmd);
                     int wait_count = 0;
@@ -1009,6 +1010,10 @@ public class MonkeySourceApe implements MonkeyEventSource {
             } catch (Exception e) {
                 e.printStackTrace();
                 System.out.println("[APE_MT] Failed to wait pulling mt_data due to exception");
+            } finally {
+                long stampAfter = System.currentTimeMillis();
+                System.out.println(String.format("[APE_MT] Wait for backup mt_data before clearPackage consumed %d loop %d ms",
+                    loop_cnt, System.currentTimeMillis() - stampBefore));
             }
         }
         AndroidDevice.clearPackage(packageName);
