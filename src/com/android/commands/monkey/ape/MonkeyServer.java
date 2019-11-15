@@ -421,7 +421,8 @@ public class MonkeyServer implements Runnable {
                     target.writeTo(os);
                 }
             } catch (IOException e) {
-                e.printStackTrace();
+                serverlog_pw.println(String.format("Sending target methods failed, currentTimeMillis  = %d", System.currentTimeMillis()));
+                e.printStackTrace(serverlog_pw);
                 throw new RuntimeException("write methods");
             }
 
