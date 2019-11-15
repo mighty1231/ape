@@ -405,15 +405,15 @@ public class MonkeyServer implements Runnable {
             }
             try {
                 // send target methods
-                if (mNoMtdGuide)
-                    writeInt32(kHandShakeNoGuide);
-                else
-                    writeInt32(kHandShake);
                 int hsval = readInt32();
                 if (hsval != kHandShake) {
                     serverlog_pw.println(String.format("%d Handshake failed %d", System.currentTimeMillis(), Integer.toHexString(hsval)));
                     throw new RuntimeException("handshake");
                 }
+                if (mNoMtdGuide)
+                    writeInt32(kHandShakeNoGuide);
+                else
+                    writeInt32(kHandShake);
                 directory = readMTDirectory();
                 writeInt32(target_methods.size()); // size could be zero
                 serverlog_pw.println(String.format("%d Handshake success", System.currentTimeMillis()));
