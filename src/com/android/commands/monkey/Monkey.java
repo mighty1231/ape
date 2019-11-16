@@ -745,7 +745,7 @@ public class Monkey {
             mMonkeyServer = null;
             if (mCommunicateWithART) {
                 try {
-                    MonkeyServer.makeInstance(mNoMtdGuide);
+                    MonkeyServer.makeInstance(mNoMtdGuide, Config.getBoolean("ape.mt.targetMainThreadOnly", true));
                 } catch (IOException e) {
                     throw new RuntimeException("Failed to initialize MonkeyServer");
                 }
@@ -1032,6 +1032,8 @@ public class Monkey {
                     String treeFile = nextOptionData();
                     Config.set("ape.test.treeFile", treeFile);
                     mTestMode = 2;
+                } else if (opt.equals("--target-all-thread")) {
+                    Config.setBoolean("ape.mt.targetMainThreadOnly", false);
                 } else {
                     System.err.println("** Error: Unknown option: " + opt);
                     showUsage();
@@ -1693,6 +1695,7 @@ public class Monkey {
         usage.append("              [--mt]\n");
         usage.append("              [--mtdtarget MTD_TARGET_FILE]\n");
         usage.append("              [--no-mtdguide]\n");
+        usage.append("              [--target-all-thread]\n");
         usage.append("              COUNT\n");
         System.err.println(usage.toString());
     }

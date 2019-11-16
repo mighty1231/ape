@@ -119,8 +119,9 @@ public class MonkeyServer implements Runnable {
     private LocalServerSocket lss;
     private Object impl;
     private Class<?> impl_class;
+    private boolean mainThreadOnly;
 
-    private MonkeyServer(boolean mNoMtdGuide) throws IOException {
+    private MonkeyServer(boolean mNoMtdGuide, boolean mainThreadOnly) throws IOException {
         try {
             impl_class = Class.forName("android.net.LocalSocketImpl");
             lss = new LocalServerSocket(SOCK_ADDRESS);
@@ -146,8 +147,9 @@ public class MonkeyServer implements Runnable {
         buffer = new byte[128];
         parseTargetMtds();
         thread = new Thread(this);
-        this.mNoMtdGuide = mNoMtdGuide;
         moved_directories = new ArrayList<>();
+        this.mNoMtdGuide = mNoMtdGuide;
+        this.mainThreadOnly = mainThreadOnly;
     }
 
     public Thread getThread() {
@@ -166,8 +168,8 @@ public class MonkeyServer implements Runnable {
         serverlog_pw.println("MonkeyServer log");
     }
 
-    public static void makeInstance(boolean mNoMtdGuide) throws IOException {
-        instance = new MonkeyServer(mNoMtdGuide);
+    public static void makeInstance(boolean mNoMtdGuide, boolean mainThreadOnly) throws IOException {
+        instance = new MonkeyServer(mNoMtdGuide, mainThreadOnly);
     }
 
     public static MonkeyServer getInstance() {
@@ -467,10 +469,13 @@ public class MonkeyServer implements Runnable {
                                 serverlog_pw.println(String.format("%d Wrong method id received: %x", System.currentTimeMillis(), method_id));
                                 throw new RuntimeException("Unknown method id " + method_id);
                             }
+                            // read timestamp
                             tmp = (long)readInt32() + ((long)readInt32() << 32);
-                            synchronized (this) {
-                                last_target_time = tmp;
-                                last_method_id = method_id;
+                            if (!mainThreadOnly || tid == mainTid) {
+                                synchronized (this) {
+                                    last_target_time = tmp;
+                                    last_method_id = method_id;
+                                }
                             }
                             break;
                         case kIdle:
