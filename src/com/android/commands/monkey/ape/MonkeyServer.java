@@ -107,6 +107,7 @@ public class MonkeyServer implements Runnable {
     private boolean mNoMtdGuide;
 
     private volatile int connection_cnt;
+    private int mainTid;
 
     private boolean is_running;
 
@@ -140,6 +141,7 @@ public class MonkeyServer implements Runnable {
         last_target_time = 0;
         connection_cnt = 0;
         last_method_id = -1;
+        mainTid = -1;
         is_running = true;
         buffer = new byte[128];
         parseTargetMtds();
@@ -246,6 +248,7 @@ public class MonkeyServer implements Runnable {
             last_idle_time = -1; // crashed
             last_target_time = -1;
             connection_cnt = 0;
+            mainTid = -1;
             notifyAll();
         }
     }
@@ -307,7 +310,7 @@ public class MonkeyServer implements Runnable {
         while (byte_written < 4) {
             cur_written = is.read(buffer, byte_written, 4-byte_written);
             if (cur_written == -1) {
-                throw new IOException("readint32");
+                throw new IOException("readInt32");
             }
 
             byte_written += cur_written;
@@ -324,7 +327,7 @@ public class MonkeyServer implements Runnable {
         while (byte_written < length) {
             cur_written = is.read(buffer, byte_written, length-byte_written);
             if (cur_written == -1) {
-                throw new IOException("readint32");
+                throw new IOException("readInt32");
             }
 
             byte_written += cur_written;
@@ -414,6 +417,7 @@ public class MonkeyServer implements Runnable {
                     writeInt32(kHandShakeNoGuide);
                 else
                     writeInt32(kHandShake);
+                mainTid = readInt32();
                 directory = readMTDirectory();
                 writeInt32(target_methods.size()); // size could be zero
                 serverlog_pw.println(String.format("%d Handshake success", System.currentTimeMillis()));
@@ -423,7 +427,13 @@ public class MonkeyServer implements Runnable {
             } catch (IOException e) {
                 serverlog_pw.println(String.format("Sending target methods failed, currentTimeMillis  = %d", System.currentTimeMillis()));
                 e.printStackTrace(serverlog_pw);
-                throw new RuntimeException("write methods");
+                synchronized (this) {
+                    last_idle_time = -1;
+                    last_target_time = -1;
+                    connection_cnt = 0;
+                    mainTid = -1;
+                }
+                continue;
             }
 
             while (is_running) {
@@ -439,6 +449,7 @@ public class MonkeyServer implements Runnable {
                         last_idle_time = -1;
                         last_target_time = -1;
                         connection_cnt = 0;
+                        mainTid = -1;
                     }
                     break;
                 }
@@ -450,8 +461,8 @@ public class MonkeyServer implements Runnable {
                         case kTargetExited:
                         case kTargetUnwind:
                             // mask last action specialty...
-                            // @TODO failing on readInt32 should cause closing of original socket and starting new loop
-                            int method_id = readInt32(); // unused now
+                            int tid = readInt32(); // unused now
+                            int method_id = readInt32();
                             if (method_id < 0 || method_id >= target_methods.size()) {
                                 serverlog_pw.println(String.format("%d Wrong method id received: %x", System.currentTimeMillis(), method_id));
                                 throw new RuntimeException("Unknown method id " + method_id);
@@ -483,6 +494,7 @@ public class MonkeyServer implements Runnable {
                         last_idle_time = -1;
                         last_target_time = -1;
                         connection_cnt = 0;
+                        mainTid = -1;
                     }
                     break;
                 }
