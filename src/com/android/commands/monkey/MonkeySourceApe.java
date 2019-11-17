@@ -126,6 +126,8 @@ public class MonkeySourceApe implements MonkeyEventSource {
     int nullInfoCounter = 0;
     int lostFocusedCounter = 0;
 
+    private boolean mNoMtdGuide;
+
     /**
      * UiAutomation client and connection
      */
@@ -220,7 +222,7 @@ public class MonkeySourceApe implements MonkeyEventSource {
     }
 
     public MonkeySourceApe(Random random,
-            List<ComponentName> MainApps, long throttle, boolean randomizeThrottle, File outputDirectory) {
+            List<ComponentName> MainApps, long throttle, boolean randomizeThrottle, File outputDirectory, boolean noMtdGuide) {
         mRandom = random;
         mMainApps = MainApps;
         mThrottle = throttle;
@@ -244,6 +246,8 @@ public class MonkeySourceApe implements MonkeyEventSource {
         llast_num_records = 0;
         last_num_records = 0;
         last_num_transitions = 0;
+
+        mNoMtdGuide = noMtdGuide;
     }
 
     static PrintWriter openWriter(File logFile) {
@@ -830,7 +834,7 @@ public class MonkeySourceApe implements MonkeyEventSource {
         //                      1 GUITreeTransition is added
         // Otherwise, log it
         // Update metTargetScore
-        if (mMonkeyServer != null && !mMonkeyServer.noGuide()) {
+        if (mMonkeyServer != null) {
             List<ActionRecord> records = mAgent.getActionHistory();
             Graph graph = ((StatefulAgent) mAgent).getGraph();
             List<GUITreeTransition> transitions = graph.getTreeHistory();
@@ -1365,7 +1369,7 @@ public class MonkeySourceApe implements MonkeyEventSource {
     private List<Long> eventPoppedTimes;
 
     public void alertHalf() {
-        if (mAgent instanceof SataAgent && mMonkeyServer != null && !mMonkeyServer.noGuide()) {
+        if (mAgent instanceof SataAgent && mMonkeyServer != null && !mNoMtdGuide) {
             ((SataAgent) mAgent).alertHalf();
         }
     }
@@ -1381,7 +1385,7 @@ public class MonkeySourceApe implements MonkeyEventSource {
         }
         if (!hasEvent()) {
             try {
-                if (mMonkeyServer != null && !mMonkeyServer.noGuide()) {
+                if (mMonkeyServer != null) {
                     // wait for idle state!
                     List<ActionRecord> records = mAgent.getActionHistory();
                     int actionLength = records.size();
@@ -1415,7 +1419,7 @@ public class MonkeySourceApe implements MonkeyEventSource {
         mEventCount++;
         MonkeyEvent e = popEvent();
         ApeRRFormatter.logConsume(mEventConsumeLogger, e);
-        if (mMonkeyServer != null && !mMonkeyServer.noGuide()) {
+        if (mMonkeyServer != null) {
             if (!(e instanceof MonkeyThrottleEvent)) {
                 lastEventPoppedTime = System.currentTimeMillis();
             }

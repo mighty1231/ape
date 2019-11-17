@@ -745,14 +745,14 @@ public class Monkey {
             mMonkeyServer = null;
             if (mCommunicateWithART) {
                 try {
-                    MonkeyServer.makeInstance(mNoMtdGuide, Config.getBoolean("ape.mt.targetMainThreadOnly", true));
+                    MonkeyServer.makeInstance(Config.getBoolean("ape.mt.targetMainThreadOnly", true));
                 } catch (IOException e) {
                     throw new RuntimeException("Failed to initialize MonkeyServer");
                 }
                 mMonkeyServer = MonkeyServer.getInstance();
             }
             mEventSource = new MonkeySourceApe(mRandom, mMainApps, mThrottle,
-                    mRandomizeThrottle, mOutputDirectory);
+                    mRandomizeThrottle, mOutputDirectory, mNoMtdGuide);
             mEventSource.setVerbose(mVerbose);
             if (mMonkeyServer != null) {
                 try {
@@ -1025,10 +1025,14 @@ public class Monkey {
                     // target but no induce. just for log
                     mNoMtdGuide = true;
                 } else if (opt.equals("--savetree")) {
+                    String modelFile = nextOptionData();
+                    Config.set("ape.test.modelFile", modelFile);
                     String treeFile = nextOptionData();
                     Config.set("ape.test.treeFile", treeFile);
                     mTestMode = 1;
                 } else if (opt.equals("--loadtree")) {
+                    String modelFile = nextOptionData();
+                    Config.set("ape.test.modelFile", modelFile);
                     String treeFile = nextOptionData();
                     Config.set("ape.test.treeFile", treeFile);
                     mTestMode = 2;
@@ -1063,10 +1067,25 @@ public class Monkey {
 
         // TEST for read gui tree and state
         if (mTestMode > 0) {
-            String modelFile = Config.get("ape.modelFile");
-            Graph graph = graph = Graph.readGraph(modelFile);
+            // String modelFile = Config.get("ape.test.modelFile");
+            // String treeFile = Config.get("ape.test.treeFile", treeFile);
+            // Model model;
+            // try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(modelFile))) {
+            //     model = (Model) ois.readObject();
+            // } catch (Exception e) {
+            //     e.printStackTrace();
+            //     Logger.println("Fail to load graph from " + modelFile);
+            // }
+            // Graph graph = model.getGraph();
 
-            List<GUITreeTransition> transitions = graph.getTreeHistory();
+            // if (mTestMode == 1) {
+            //     Utils.saveXml(treeFile, tree.getDocument());
+            // } else {
+            //     List<GUITreeTransition> transitions = graph.getTreeHistory();
+            //     GUITreeTransition transition = transitions.get(0);
+            //     GUITree tree = transition.getTarget();
+            //     GUITreeBuilder treeBuilder = new GUITreeBuilder(model.getNamingManager(), tree);
+            // }
             return false;
         }
 

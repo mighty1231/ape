@@ -71,7 +71,6 @@ public class MonkeyServer implements Runnable {
     private static MonkeyServer instance = null;
 
     private static final int kHandShake         = 0x0abeabe0;
-    private static final int kHandShakeNoGuide  = 0x1abeabe1;
     private static final int kTargetEntered     = 0xabeabe01; // 4byte
     private static final int kTargetExited      = 0xabeabe02; // 4byte
     private static final int kTargetUnwind      = 0xabeabe03; // 4byte
@@ -104,7 +103,6 @@ public class MonkeyServer implements Runnable {
     // Store time for last targeting method met
     private long last_target_time; // must be protected with lock
     private int last_method_id; // must be protected with lock
-    private boolean mNoMtdGuide;
 
     private volatile int connection_cnt;
     private int mainTid;
@@ -121,7 +119,7 @@ public class MonkeyServer implements Runnable {
     private Class<?> impl_class;
     private boolean mainThreadOnly;
 
-    private MonkeyServer(boolean mNoMtdGuide, boolean mainThreadOnly) throws IOException {
+    private MonkeyServer(boolean mainThreadOnly) throws IOException {
         try {
             impl_class = Class.forName("android.net.LocalSocketImpl");
             lss = new LocalServerSocket(SOCK_ADDRESS);
@@ -148,16 +146,11 @@ public class MonkeyServer implements Runnable {
         parseTargetMtds();
         thread = new Thread(this);
         moved_directories = new ArrayList<>();
-        this.mNoMtdGuide = mNoMtdGuide;
         this.mainThreadOnly = mainThreadOnly;
     }
 
     public Thread getThread() {
         return thread;
-    }
-
-    public boolean noGuide() {
-        return mNoMtdGuide;
     }
 
     public void registerAPE(MonkeySourceApe ape) throws IOException {
@@ -168,8 +161,8 @@ public class MonkeyServer implements Runnable {
         serverlog_pw.println("MonkeyServer log");
     }
 
-    public static void makeInstance(boolean mNoMtdGuide, boolean mainThreadOnly) throws IOException {
-        instance = new MonkeyServer(mNoMtdGuide, mainThreadOnly);
+    public static void makeInstance(boolean mainThreadOnly) throws IOException {
+        instance = new MonkeyServer(mainThreadOnly);
     }
 
     public static MonkeyServer getInstance() {
@@ -415,10 +408,7 @@ public class MonkeyServer implements Runnable {
                     serverlog_pw.println(String.format("%d Handshake failed %d", System.currentTimeMillis(), Integer.toHexString(hsval)));
                     throw new RuntimeException("handshake");
                 }
-                if (mNoMtdGuide)
-                    writeInt32(kHandShakeNoGuide);
-                else
-                    writeInt32(kHandShake);
+                writeInt32(kHandShake);
                 mainTid = readInt32();
                 directory = readMTDirectory();
                 writeInt32(target_methods.size()); // size could be zero
