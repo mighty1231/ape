@@ -406,6 +406,7 @@ public class MonkeyServer implements Runnable {
                 int hsval = readInt32();
                 if (hsval != kHandShake) {
                     serverlog_pw.println(String.format("%d Handshake failed %d", System.currentTimeMillis(), Integer.toHexString(hsval)));
+                    serverlog_pw.close();
                     throw new RuntimeException("handshake");
                 }
                 writeInt32(kHandShake);
@@ -457,6 +458,7 @@ public class MonkeyServer implements Runnable {
                             int method_id = readInt32();
                             if (method_id < 0 || method_id >= target_methods.size()) {
                                 serverlog_pw.println(String.format("%d Wrong method id received: %x", System.currentTimeMillis(), method_id));
+                                serverlog_pw.close();
                                 throw new RuntimeException("Unknown method id " + method_id);
                             }
                             // read timestamp
@@ -478,6 +480,7 @@ public class MonkeyServer implements Runnable {
                             break;
                         default:
                             serverlog_pw.println(String.format("%d Unknown id received %x", System.currentTimeMillis(), id));
+                            serverlog_pw.close();
                             throw new RuntimeException("Unknown id");
                     }
                 } catch (IOException e) {
