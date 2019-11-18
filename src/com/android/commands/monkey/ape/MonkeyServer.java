@@ -147,6 +147,7 @@ public class MonkeyServer implements Runnable {
         thread = new Thread(this);
         moved_directories = new ArrayList<>();
         this.mainThreadOnly = mainThreadOnly;
+        System.out.println("[APE_MT] MonkeyServer Initialized");
     }
 
     public Thread getThread() {
