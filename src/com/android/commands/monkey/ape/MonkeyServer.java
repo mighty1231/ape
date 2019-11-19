@@ -145,6 +145,7 @@ public class MonkeyServer implements Runnable {
         buffer = new byte[128];
         parseTargetMtds();
         thread = new Thread(this);
+        thread.setDaemon(true);
         moved_directories = new ArrayList<>();
         this.mainThreadOnly = mainThreadOnly;
         System.out.println("[APE_MT] MonkeyServer Initialized");
@@ -470,6 +471,17 @@ public class MonkeyServer implements Runnable {
                                     last_method_id = method_id;
                                 }
                             }
+                            // TargetMethod method = target_methods.get(method_id);
+                            // if (id == kTargetEntered) {
+                            //     serverlog_pw.println(String.format("Timestamp %d (tid=%d): method %s:%s[%s] entered", tmp, tid,
+                            //         method.clsname, method.mtdname, method.signature, tid));
+                            // } else if (id == kTargetExited) {
+                            //     serverlog_pw.println(String.format("Timestamp %d (tid=%d): method %s:%s[%s] exited", tmp, tid,
+                            //         method.clsname, method.mtdname, method.signature, tid));
+                            // } else {
+                            //     serverlog_pw.println(String.format("Timestamp %d (tid=%d): method %s:%s[%s] unwind", tmp, tid,
+                            //         method.clsname, method.mtdname, method.signature, tid));
+                            // }
                             break;
                         case kIdle:
                             // store idle time
