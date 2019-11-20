@@ -242,7 +242,7 @@ public class MonkeySourceApe implements MonkeyEventSource {
         eventPoppedTimes = new ArrayList<Long>();
         connect();
 
-        last_action_generated_time = 0;
+        last_transition_generation_time = 0;
         llast_num_records = 0;
         last_num_records = 0;
         last_num_transitions = 0;
@@ -778,7 +778,7 @@ public class MonkeySourceApe implements MonkeyEventSource {
     }
 
     // used for marking transitions
-    private long last_action_generated_time;
+    private long last_transition_generation_time;
     private int llast_num_records;
     private int last_num_records;
     private int last_num_transitions;
@@ -838,55 +838,39 @@ public class MonkeySourceApe implements MonkeyEventSource {
             List<ActionRecord> records = mAgent.getActionHistory();
             Graph graph = ((StatefulAgent) mAgent).getGraph();
             List<GUITreeTransition> transitions = graph.getTreeHistory();
-            int num_records = records.size();
             int num_transitions = transitions.size();
-            if (num_records >= 1 && last_num_records >= 1) {
-                int rec_diff = last_num_records - llast_num_records;
-                int tr_diff = num_transitions - last_num_transitions;
-                Action lastAction = records.get(last_num_records - 1).modelAction;
+            int tr_diff = num_transitions - last_num_transitions;
 
-                System.out.println(String.format("[APE_MT] num records diff %d num transitions diff %d", rec_diff, tr_diff));
-                if (rec_diff == 1 && tr_diff == 1 && !lastAction.canStartApp()) {
-                    // mark GUITransition
-                    if (mMonkeyServer.metTargetMethods(last_action_generated_time)) {
-                        // mark last transition/state
-                        GUITreeTransition lastTransition = transitions.get(num_transitions - 1);
-                        GUITree lastGUITree = lastTransition.getSource();
-                        if (lastGUITree == null) {
-                            throw new RuntimeException("Should not reach here");
-                        }
-
-                        // if the state became target state as first time, rebuild subsequence trie
-                        boolean rebuild = false;
-                        if (!lastGUITree.getCurrentState().hasMetTargetMethod()) { rebuild = true; }
-                        lastTransition.setMetTargetMethod();
-                        lastGUITree.setMetTargetMethod();
-                        graph.addMetTargetMethodGUITree(lastGUITree);
-                        if (rebuild) {
-                            graph.rebuildSubsequenceTrie();
-                        }
-
-                        System.out.println("[APE_MT] MET_TARGET state " + lastGUITree.toString());
-                        System.out.println("[APE_MT] MET_TARGET action " + lastAction.toString());
-                        System.out.println("[APE_MT] MET_TARGET transition " + lastTransition.getCurrentStateTransition().toString());
+            if (num_transitions >= 1 &&  mMonkeyServer.metTargetMethods(last_transition_generation_time)) {
+                GUITreeTransition lastTransition = transitions.get(num_transitions - 1);
+                if (!lastTransition.hasMetTargetMethod()) {
+                    GUITree lastGUITree = lastTransition.getSource();
+                    if (lastGUITree == null) {
+                        throw new RuntimeException("Should not reach here");
                     }
-                } else {
-                    // get differences! @TODO to watch diff transitions
-                    System.out.println(String.format("[APE_MT] diff of records %d~%d", llast_num_records, last_num_records));
-                    for (int i=llast_num_records; i<last_num_records; i++) {
-                        Action executed_action = records.get(i).modelAction;
-                        System.out.println(String.format("[APE_MT] rec: %d %s", i, executed_action.toString()));
+
+                    boolean rebuild = false;
+                    if (!lastGUITree.getCurrentState().hasMetTargetMethod()) { rebuild = true; }
+                    lastTransition.setMetTargetMethod();
+                    lastGUITree.setMetTargetMethod();
+                    graph.addMetTargetMethodGUITree(lastGUITree);
+                    if (rebuild) {
+                        graph.rebuildSubsequenceTrie();
                     }
-                    System.out.println(String.format("[APE_MT] diff of transitions %d~%d", last_num_transitions, num_transitions));
-                    for (int i=last_num_transitions; i<num_transitions; i++) {
-                        System.out.println(String.format("[APE_MT] tr: %d %s", i, transitions.get(i).getCurrentStateTransition().toString()));
+                }
+
+            }
+            if (tr_diff == 1) {
+                last_transition_generation_time = System.currentTimeMillis();
+                if (num_transitions >= 2) {
+                    GUITreeTransition lastlastTransition = transitions.get(num_transitions - 2);
+                    if (lastlastTransition.hasMetTargetMethod()) {
+                        System.out.println("[APE_MT] Lastlast transition met target");
+                        System.out.println("[APE_MT] - state " + lastlastTransition.getSource().toString());
+                        System.out.println("[APE_MT] - transition " + lastlastTransition.getCurrentStateTransition().toString());
                     }
                 }
             }
-
-            last_action_generated_time = System.currentTimeMillis();
-            llast_num_records = last_num_records;
-            last_num_records = num_records;
             last_num_transitions = num_transitions;
         }
 

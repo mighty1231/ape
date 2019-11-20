@@ -243,7 +243,6 @@ public class MonkeyServer implements Runnable {
     public void alertCrash() {
         synchronized (this) {
             last_idle_time = -1; // crashed
-            last_target_time = -1;
             connection_cnt = 0;
             mainTid = -1;
             notifyAll();
@@ -424,7 +423,6 @@ public class MonkeyServer implements Runnable {
                 e.printStackTrace(serverlog_pw);
                 synchronized (this) {
                     last_idle_time = -1;
-                    last_target_time = -1;
                     connection_cnt = 0;
                     mainTid = -1;
                 }
@@ -442,7 +440,6 @@ public class MonkeyServer implements Runnable {
                     } catch (IOException e2) {}
                     synchronized (this) {
                         last_idle_time = -1;
-                        last_target_time = -1;
                         connection_cnt = 0;
                         mainTid = -1;
                     }
@@ -503,7 +500,6 @@ public class MonkeyServer implements Runnable {
                     } catch (IOException e2) {}
                     synchronized (this) {
                         last_idle_time = -1;
-                        last_target_time = -1;
                         connection_cnt = 0;
                         mainTid = -1;
                     }
