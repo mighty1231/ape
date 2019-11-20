@@ -182,14 +182,17 @@ public class SataAgent extends StatefulAgent {
     private ActivityNode backToActivity;
     private boolean targetMethodActivated = false;
     private final Map<State, Double> stateToScore = new HashMap<>();
+    private int mhbuffer;
 
     public SataAgent(MonkeySourceApe ape, Graph graph) {
         this(ape, graph, defaultEpsilon);
+        mhbuffer = 0;
     }
 
     public SataAgent(MonkeySourceApe ape, Graph graph, double epsilon) {
         super(ape, graph);
         this.epsilon = epsilon;
+        mhbuffer = 0;
 
 
         this.actionCounters = new int[SataEventType.values().length];
@@ -293,8 +296,10 @@ public class SataAgent extends StatefulAgent {
                     Logger.iformat("- %s", action);
                 }
             }
-            if (targetMethodActivated && !getGraph().hasMetTargetMethod())
+            if (targetMethodActivated && !getGraph().hasMetTargetMethod()) {
                 System.out.println("[APE_MT_WARNING] TargetMethod activated but target method is not found");
+                mhbuffer = 10;
+            }
         }
         Action resolved = null;
         resolved = selectNewActionFromBuffer();
@@ -308,13 +313,14 @@ public class SataAgent extends StatefulAgent {
             return resolved;
         }
 
-        if (targetMethodActivated && getGraph().hasMetTargetMethod()) {
+        if (targetMethodActivated && getGraph().hasMetTargetMethod() && (mhbuffer == 0)) {
             resolved = selectNewActionMetropolisHastings();
             if (resolved != null) {
                 logActionSelected(resolved, SataEventType.MCMC);
                 return resolved;
             }
         } else {
+            if (targetMethodActivated && getGraph().hasMetTargetMethod() && (mhbuffer > 0)) { mhbuffer--; }
             resolved = selectNewActionEarlyStageForward();
             if (resolved != null) {
                 logActionSelected(resolved, SataEventType.EARLY_STAGE);
@@ -459,6 +465,7 @@ public class SataAgent extends StatefulAgent {
         if (thisFound == false) {
             System.out.println("[APE_MT_WARNING] There is no way to go to target. Graph is REDUCIBLE");
             stateToScore.clear();
+            mhbuffer += 5;
             return null;
         }
 
