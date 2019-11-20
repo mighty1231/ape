@@ -242,7 +242,7 @@ public class MonkeySourceApe implements MonkeyEventSource {
         eventPoppedTimes = new ArrayList<Long>();
         connect();
 
-        last_transition_generation_time = 0;
+        last_action_generation_time = 0;
         last_num_transitions = 0;
 
         mNoMtdGuide = noMtdGuide;
@@ -776,7 +776,7 @@ public class MonkeySourceApe implements MonkeyEventSource {
     }
 
     // used for marking transitions
-    private long last_transition_generation_time;
+    private long last_action_generation_time;
     private int last_num_transitions;
 
     /**
@@ -835,7 +835,7 @@ public class MonkeySourceApe implements MonkeyEventSource {
             int num_transitions = transitions.size();
             int tr_diff = num_transitions - last_num_transitions;
 
-            if (num_transitions >= 1 &&  mMonkeyServer.metTargetMethods(last_transition_generation_time)) {
+            if (num_transitions >= 1 && mMonkeyServer.metTargetMethods(last_action_generation_time)) {
                 GUITreeTransition lastTransition = transitions.get(num_transitions - 1);
                 if (!lastTransition.hasMetTargetMethod()) {
                     GUITree lastGUITree = lastTransition.getSource();
@@ -853,8 +853,8 @@ public class MonkeySourceApe implements MonkeyEventSource {
                     }
                 }
             }
+            last_action_generation_time = System.currentTimeMillis();
             if (tr_diff == 1) {
-                last_transition_generation_time = System.currentTimeMillis();
                 if (num_transitions >= 2) {
                     GUITreeTransition lastlastTransition = transitions.get(num_transitions - 2);
                     if (lastlastTransition.hasMetTargetMethod()) {
