@@ -243,8 +243,6 @@ public class MonkeySourceApe implements MonkeyEventSource {
         connect();
 
         last_transition_generation_time = 0;
-        llast_num_records = 0;
-        last_num_records = 0;
         last_num_transitions = 0;
 
         mNoMtdGuide = noMtdGuide;
@@ -779,8 +777,6 @@ public class MonkeySourceApe implements MonkeyEventSource {
 
     // used for marking transitions
     private long last_transition_generation_time;
-    private int llast_num_records;
-    private int last_num_records;
     private int last_num_transitions;
 
     /**
@@ -829,9 +825,7 @@ public class MonkeySourceApe implements MonkeyEventSource {
         }
         generateEventsForAction(action);
 
-        // @TODO timestamp
-        // Set target only when 1 actionrecord is injected
-        //                      1 GUITreeTransition is added
+        // Set target only when 1 GUITreeTransition is added
         // Otherwise, log it
         // Update metTargetScore
         if (mMonkeyServer != null) {
@@ -858,7 +852,6 @@ public class MonkeySourceApe implements MonkeyEventSource {
                         graph.rebuildSubsequenceTrie();
                     }
                 }
-
             }
             if (tr_diff == 1) {
                 last_transition_generation_time = System.currentTimeMillis();
