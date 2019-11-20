@@ -316,6 +316,24 @@ public class MonkeyServer implements Runnable {
         return ret;
     }
 
+    public long readLong() throws IOException {
+        // Read idle time!
+        int byte_written = 0;
+        int cur_written;
+        while (byte_written < 8) {
+            cur_written = is.read(buffer, byte_written, 8-byte_written);
+            if (cur_written == -1) {
+                throw new IOException("readInt32");
+            }
+
+            byte_written += cur_written;
+        }
+
+        long ret = (((long)buffer[0] & 0xFF)  | (((long)buffer[1] & 0xFF) << 8) | (((long)buffer[2] & 0xFF) << 16) | (((long)buffer[3] & 0xFF) << 24)
+            | (((long)buffer[4] & 0xFF) << 32) | (((long)buffer[5] & 0xFF) << 40) | (((long)buffer[6] & 0xFF) << 48) | (((long)buffer[7] & 0xFF) << 56));
+        return ret;
+    }
+
     public String readMTDirectory() throws IOException {
         int length = readInt32();
         int byte_written = 0;
@@ -461,7 +479,7 @@ public class MonkeyServer implements Runnable {
                                 throw new RuntimeException("Unknown method id " + method_id);
                             }
                             // read timestamp
-                            tmp = (long)readInt32() + ((long)readInt32() << 32);
+                            tmp = readLong();
                             if (!mainThreadOnly || tid == mainTid) {
                                 synchronized (this) {
                                     last_target_time = tmp;
@@ -482,7 +500,7 @@ public class MonkeyServer implements Runnable {
                             break;
                         case kIdle:
                             // store idle time
-                            tmp = (long)readInt32() + ((long)readInt32() << 32);
+                            tmp = readLong();
                             synchronized (this) {
                                 last_idle_time = tmp;
                                 notify();
