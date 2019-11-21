@@ -1024,6 +1024,10 @@ public class Monkey {
                 } else if (opt.equals("--no-mtdguide")) {
                     // target but no induce. just for log
                     mNoMtdGuide = true;
+                } else if (opt.equals("--subseqstdlim")) {
+                    // standard deviation limit
+                    long subseqdevlim = nextOptionLong("Standard deviation limit on count of subsequences");
+                    Config.setLong("ape.mt.subseqdevlim", subseqdevlim);
                 } else if (opt.equals("--savetree")) {
                     String modelFile = nextOptionData();
                     Config.set("ape.test.modelFile", modelFile);

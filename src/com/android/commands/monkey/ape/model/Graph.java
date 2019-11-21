@@ -19,6 +19,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 
 import com.android.commands.monkey.ape.ActionFilter;
+import com.android.commands.monkey.ape.agent.SataAgent;
 import com.android.commands.monkey.ape.Subsequence;
 import com.android.commands.monkey.ape.SubsequenceFilter;
 import com.android.commands.monkey.ape.SubsequenceTrie;
@@ -121,9 +122,7 @@ public class Graph implements Serializable {
     private int metropolisHastingsRejectCount = 0;
 
     public Graph() {
-        int observingSeqLength = Config.getInteger("ape.mt.observingSeqLength", 6);
-        double seqCountLimitRatio = Config.getDouble("ape.mt.seqCountLimitRatio", 0.10);
-        subsequenceTrie = new SubsequenceTrie(observingSeqLength, seqCountLimitRatio);
+        subsequenceTrie = new SubsequenceTrie();
     }
 
     public int size() {
@@ -1300,18 +1299,12 @@ public class Graph implements Serializable {
         subsequenceTrie.moveForward(lastTransition.getCurrentStateTransition());
     }
 
-    // return whether or not it can be chosen as next action
-    public boolean checkNextTransition(StateTransition transition) {
-        boolean ret = subsequenceTrie.checkNextTransition(transition);
-        if (!ret) {
-            System.out.println("[APE_MT_SS] Avoid to choose next transition " + transition.toShortString());
-        }
-        return ret;
+    public void splitSubsequenceTrie() {
+        subsequenceTrie.stateSplit();
     }
 
-    // return whether or not it can be chosen as next subsequence
-    public boolean checkNextSubsequence(Subsequence subsequence) {
-        return subsequenceTrie.checkNextSubsequence(subsequence);
+    public List<StateTransition> getTransitionsToReject(SataAgent agent, State newState, long stddevLimit) {
+        return subsequenceTrie.getTransitionsToReject(agent, newState, stddevLimit);
     }
 
     public void debug_trieprint() {

@@ -2,8 +2,11 @@ package com.android.commands.monkey.ape;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.List;
+import java.util.ArrayList;
 
 import com.android.commands.monkey.ape.Subsequence;
+import com.android.commands.monkey.ape.agent.SataAgent;
 import com.android.commands.monkey.ape.model.State;
 import com.android.commands.monkey.ape.model.StateTransition;
 import com.android.commands.monkey.ape.utils.Config;
@@ -27,9 +30,31 @@ public class SubsequenceTrie {
 
         public HashMap<StateTransition, SubsequenceTrieNode> getChildren() { return children; } 
         public StateTransition getTransition() { return transition; } 
-        public State getState() { return state; } 
+        public State getState() { return state; }
         public int getCount() { return count; }
         public void incCount() { count += 1; }
+
+        // dfs
+        public void collectCount(List<Integer> counts) {
+            if (count != 0) {
+                counts.add(count);
+            }
+            for (SubsequenceTrieNode node: children.values()) {
+                node.collectCount(counts);
+            }
+        }
+
+        public void collectSubsequenceAboveCount(List<List<StateTransition>> subsequences, List<StateTransition> curSubsequence, int countLimit) {
+            if (count > countLimit) {
+                subsequences.add(curSubsequence);
+                return;
+            }
+            for (Map.Entry<StateTransition, SubsequenceTrieNode> elem: children.entrySet()) {
+                List<StateTransition> newSubsequence = new ArrayList<>(curSubsequence);
+                newSubsequence.add(elem.getKey());
+                elem.getValue().collectSubsequenceAboveCount(subsequences, newSubsequence, countLimit);
+            }
+        }
 
         // debug
         public void print(int curDepth, int maxDepth, SubsequenceTrieNode curNode) {
@@ -47,27 +72,21 @@ public class SubsequenceTrie {
                 System.out.println("  ...");
                 return;
             }
-            for (Map.Entry<StateTransition, SubsequenceTrieNode> elem: children.entrySet()) {
-                elem.getValue().print(curDepth + 1, maxDepth, curNode);
+            for (SubsequenceTrieNode node: children.values()) {
+                node.print(curDepth + 1, maxDepth, curNode);
             }
         }
     }
 
     private SubsequenceTrieNode root;
     private int totalSize;
-
-    private int observingSeqLength;
-    private double seqCountLimitRatio;
     private int splitCount;
 
     private SubsequenceTrieNode curNode;
     private int curLength;
 
-    public SubsequenceTrie(int observingSeqLength, double seqCountLimitRatio) {
-        System.out.println(String.format("[APE_MT_SS] seqLength %d seqCountLimitRatio %.2f", observingSeqLength, seqCountLimitRatio));
+    public SubsequenceTrie() {
         root = new SubsequenceTrieNode(null);
-        this.observingSeqLength = observingSeqLength;
-        this.seqCountLimitRatio = seqCountLimitRatio;
         curNode = root;
         curLength = 0;
         totalSize = 0;
@@ -97,47 +116,100 @@ public class SubsequenceTrie {
         curLength++;
     }
 
-    public boolean checkNextTransition(StateTransition transition) {
-        if (curLength >= observingSeqLength)
-            return true;
-        HashMap<StateTransition, SubsequenceTrieNode> children = curNode.getChildren();
-        if (!children.containsKey(transition))
-            return true;
-        int limit = (int) (splitCount * seqCountLimitRatio);
-        if (limit < 3)
-            limit = 3;
-        if (children.get(transition).getCount() < limit)
-            return true;
-        return false;
-    }
 
-    public boolean checkNextSubsequence(Subsequence subsequence) {
-        SubsequenceTrieNode tempCurNode = curNode;
-        SubsequenceTrieNode nextNode = null;
-        int limit = (int) (splitCount * seqCountLimitRatio);
-        if (limit < 3)
-            limit = 3;
-        for (StateTransition edge : subsequence.getEdges()) {
-            if (edge.getSource() != tempCurNode.getState()) {
-                System.out.println("[APE_MT_WARNING] checkNextSubsequence(): subsequence does not match on current node");
-                return true;
-            }
-            HashMap<StateTransition, SubsequenceTrieNode> children = tempCurNode.getChildren();
-            if (!children.containsKey(edge)) {
-                children = root.getChildren();
-                if (!children.containsKey(edge)) {
-                    System.out.println("[APE_MT_WARNING] checkNextSubsequence(): split but no way to get next node");
-                    return true;
-                }
-                nextNode = children.get(edge);
-            } else {
-                nextNode = children.get(edge);
-            }
-            if (children.get(edge).getCount() >= limit)
-                return false;
-            tempCurNode = nextNode;
+    // evaluate transitions to be rejected,
+    //   but the first one has minimal probability to achieve rejection
+    public List<StateTransition> getTransitionsToReject(SataAgent agent, State newState, long stddevLimit) {
+        if (stddevLimit == 0 || splitCount == 0) {
+            return null;
         }
-        return false;
+
+        if (newState == null) {
+            stateSplit();
+            return null;
+        }
+
+        HashMap<StateTransition, SubsequenceTrieNode> children;
+        if (curNode != root && !newState.hasMetTargetMethod()) {
+            children = curNode.getChildren();
+        } else {
+            children = new HashMap<>();
+            for (Map.Entry<StateTransition, SubsequenceTrieNode> entry: root.getChildren().entrySet()) {
+                if (entry.getKey().getSource() == newState) {
+                    children.put(entry.getKey(), entry.getValue());
+                }
+            }
+        }
+
+        if (curNode != root && newState != curNode.getState()) {
+            throw new RuntimeException();
+        }
+
+        if (children.isEmpty())
+            return null;
+
+        // 1. evaluate list of transition counters, to evaluate average and standard deviation
+        List<Integer> counts = new ArrayList<>();
+        root.collectCount(counts);
+        int numLeafs = counts.size();
+        Integer sum = 0;
+        for (Integer count: counts) {
+            sum += count;
+        }
+
+        // 2. evaluate stdev
+        double average = sum.doubleValue() / numLeafs;
+        double sqsum = 0.0;
+        for (Integer count: counts) {
+            sqsum += (average - count) * (average - count);
+        }
+        System.out.println(String.format("[APE_MT_SS] SubsequenceTrie: sz %d avg %.3f sqsum %.3f limit %d",
+            numLeafs, average, sqsum, stddevLimit * stddevLimit * numLeafs));
+
+        // sqsum / numLeafs > stddevLimit * stddevLimit
+        if (sqsum <= stddevLimit * stddevLimit * numLeafs) {
+            // currently stddev is under the limit
+            return null;
+        }
+
+        // 3. variance increases as X_i->X_i+1, if and only if avg-(n-1)/2n < X_i
+        int countLimit = (int)(average - ((double) (numLeafs - 1)) / (2 * numLeafs));
+        List<StateTransition> ret = new ArrayList<>();
+        double minProbability = 2.0;
+        State curState = curNode.getState();
+        for (Map.Entry<StateTransition, SubsequenceTrieNode> elem: children.entrySet()) {
+            if (curNode == root) {
+                if (elem.getKey().getSource() != newState) {
+                    continue;
+                }
+            } else if (elem.getKey().getSource() != curState) {
+                throw new RuntimeException("source target miss match!");
+            }
+            List<List<StateTransition>> subsequences = new ArrayList<>();
+            List<StateTransition> curSubsequence = new ArrayList<>();
+
+            elem.getValue().collectSubsequenceAboveCount(subsequences, curSubsequence, countLimit);
+            if (subsequences.isEmpty()) {
+                continue;
+            }
+
+            // evaluate probability for each routes
+            double probability = 0.0;
+            for (List<StateTransition> subsequence: subsequences) {
+                probability += agent.evaluateSubsequenceProbability(subsequence);
+                for (StateTransition transition: subsequence) {
+                }
+            }
+
+            if (probability < minProbability) {
+                minProbability = probability;
+                ret.add(0, elem.getKey());
+            } else {
+                ret.add(elem.getKey());
+            }
+        }
+
+        return ret;
     }
 
     public int getTransitionCount() {
@@ -151,7 +223,6 @@ public class SubsequenceTrie {
     // met TargetState
     public void stateSplit() {
         if (curNode == root) { return; }
-        int count = curNode.getCount();
         curNode.incCount();
         curNode = root;
         curLength = 0;

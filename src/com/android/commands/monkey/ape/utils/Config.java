@@ -120,6 +120,10 @@ public class Config {
         return configurations.setProperty(key, Boolean.toString(value));
     }
 
+    public static Object setLong(String key, long value) {
+        return configurations.setProperty(key, Long.toString(value));
+    }
+
     public static Object setDouble(String key, double value) {
         return configurations.setProperty(key, Double.toString(value));
     }
