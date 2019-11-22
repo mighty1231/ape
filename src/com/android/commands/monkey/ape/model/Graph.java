@@ -1324,6 +1324,7 @@ public class Graph implements Serializable {
             subsequenceTrie.moveForward(guiTransition.getCurrentStateTransition());
             cur = guiTransition.getTarget();
         }
+        subsequenceTrie.notifyRebuild();
     }
 
     public List<GUITreeTransition> getTreeHistory() {

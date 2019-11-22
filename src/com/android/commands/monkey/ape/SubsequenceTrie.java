@@ -56,6 +56,15 @@ public class SubsequenceTrie {
             }
         }
 
+        public void notifyRebuild() {
+            if (count != 0) {
+                count = 1;
+            }
+            for (SubsequenceTrieNode node: children.values()) {
+                node.notifyRebuild();
+            }
+        }
+
         // debug
         public void print(int curDepth, int maxDepth, SubsequenceTrieNode curNode) {
             for (int i=0; i<curDepth; i++)
@@ -99,6 +108,10 @@ public class SubsequenceTrie {
         curLength = 0;
         totalSize = 0;
         splitCount = 0;
+    }
+
+    public void notifyRebuild() {
+        root.notifyRebuild();
     }
 
     public void moveForward(StateTransition transition) {
