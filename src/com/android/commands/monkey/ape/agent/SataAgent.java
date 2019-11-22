@@ -405,8 +405,11 @@ public class SataAgent extends StatefulAgent {
         // make weight on met targeted methods
         double dTotalPriority = (double) totalPriority;
         for (Map.Entry<StateTransition, Double> entry : transitionToScore.entrySet()) {
-            double ratio = entry.getKey().metTargetRatio();
+            StateTransition transition = entry.getKey();
+            double ratio = transition.metTargetRatio();
             if (ratio == 0.0)
+                continue;
+            if (transitionToAction.get(transition).isBack())
                 continue;
             double curWeight = ratio * (MET_TARGET_WEIGHT * totalPriority);
             entry.setValue(entry.getValue() + curWeight);
@@ -538,7 +541,7 @@ public class SataAgent extends StatefulAgent {
                         for (StateTransition stransition: transitionsToReject) {
                             System.out.println("[APE_MT_WARNING] reject " + stransition);
                         }
-                        throw new RuntimeException("???");
+                        throw new RuntimeException("");
                     }
                     totalprob -= transitionToScore.get(transition);
                     transitionToScore.remove(transition);
