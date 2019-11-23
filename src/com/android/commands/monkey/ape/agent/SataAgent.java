@@ -184,20 +184,20 @@ public class SataAgent extends StatefulAgent {
     private boolean targetMethodActivated = false;
     private final Map<State, Double> stateToScore = new HashMap<>();
     private int mhbuffer;
-    private long stddevLimit;
+    private long countLimit;
     private Map<State, Map<StateTransition, Double>> stateToTransitionToScore = new HashMap<>();
 
     public SataAgent(MonkeySourceApe ape, Graph graph) {
         this(ape, graph, defaultEpsilon);
         mhbuffer = 0;
-        stddevLimit = Config.getLong("ape.mt.subseqdevlim", 0);
+        countLimit = Config.getLong("ape.mt.countlim", 0);
     }
 
     public SataAgent(MonkeySourceApe ape, Graph graph, double epsilon) {
         super(ape, graph);
         this.epsilon = epsilon;
         mhbuffer = 0;
-        stddevLimit = Config.getLong("ape.mt.subseqdevlim", 0);
+        countLimit = Config.getLong("ape.mt.countlim", 0);
 
 
         this.actionCounters = new int[SataEventType.values().length];
@@ -525,31 +525,33 @@ public class SataAgent extends StatefulAgent {
             return null;
         }
 
-        List<StateTransition> transitionsToReject = graph.getTransitionsToReject(this, newState, stddevLimit);
-        if (transitionsToReject != null && !transitionsToReject.isEmpty()) {
-            System.out.println(String.format("[APE_MT_DEBUG] Reject %d transitions among %d transitions", transitionsToReject.size(), transitionToScore.size()));
-            if (transitionsToReject.size() == transitionToScore.size()) {
-                return transitionToAction.get(transitionsToReject.get(0));
-            } else {
-                // remove
-                double totalprob = 1.0;
-                for (StateTransition transition: transitionsToReject) {
-                    if (!transitionToScore.containsKey(transition)) {
-                        for (StateTransition stransition: transitionToScore.keySet()) {
-                            System.out.println("[APE_MT_WARNING] score " + stransition);
-                        }
-                        for (StateTransition stransition: transitionsToReject) {
-                            System.out.println("[APE_MT_WARNING] reject " + stransition);
-                        }
-                        throw new RuntimeException("");
-                    }
-                    totalprob -= transitionToScore.get(transition);
-                    transitionToScore.remove(transition);
+        Map<StateTransition, Double> transitionsToRejectRatio = graph.getTransitionsToRejectRatio(this, newState, countLimit);
+        if (transitionsToRejectRatio != null && !transitionsToRejectRatio.isEmpty()) {
+            double sum = 0.0;
+            for (Map.Entry<StateTransition, Double> entry: transitionToScore.entrySet()) {
+                double originalValue = entry.getValue();
+                Double rejectRatio = transitionsToRejectRatio.get(entry.getKey());
+                if (rejectRatio == null) {
+                    sum += originalValue;
+                } else {
+                    double newValue = originalValue * (1.0 - rejectRatio);
+                    entry.setValue(newValue);
+                    sum += newValue;
                 }
-                // normalize
-                for (Map.Entry<StateTransition, Double> entry: transitionToScore.entrySet()) {
-                    entry.setValue(entry.getValue() / totalprob);
-                }
+            }
+
+            if (sum == 0.0) {
+                System.out.println("[APE_MT_WARNING] Reject all transitions with probability 1.0");
+                mhbuffer += 5;
+                return null;
+            }
+            if (sum > 1.1) {
+                throw new RuntimeException();
+            }
+
+            // normalize
+            for (Map.Entry<StateTransition, Double> entry: transitionToScore.entrySet()) {
+                entry.setValue(entry.getValue() / sum);
             }
         }
 

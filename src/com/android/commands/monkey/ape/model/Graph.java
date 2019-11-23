@@ -1303,8 +1303,8 @@ public class Graph implements Serializable {
         subsequenceTrie.stateSplit();
     }
 
-    public List<StateTransition> getTransitionsToReject(SataAgent agent, State newState, long stddevLimit) {
-        return subsequenceTrie.getTransitionsToReject(agent, newState, stddevLimit);
+    public Map<StateTransition, Double> getTransitionsToRejectRatio(SataAgent agent, State newState, long countLimit) {
+        return subsequenceTrie.getTransitionsToRejectRatio(agent, newState, countLimit);
     }
 
     public void debug_trieprint() {
@@ -1324,7 +1324,6 @@ public class Graph implements Serializable {
             subsequenceTrie.moveForward(guiTransition.getCurrentStateTransition());
             cur = guiTransition.getTarget();
         }
-        subsequenceTrie.notifyRebuild();
     }
 
     public List<GUITreeTransition> getTreeHistory() {

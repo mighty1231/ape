@@ -1024,10 +1024,10 @@ public class Monkey {
                 } else if (opt.equals("--no-mtdguide")) {
                     // target but no induce. just for log
                     mNoMtdGuide = true;
-                } else if (opt.equals("--subseqstdlim")) {
-                    // standard deviation limit
-                    long subseqdevlim = nextOptionLong("Standard deviation limit on count of subsequences");
-                    Config.setLong("ape.mt.subseqdevlim", subseqdevlim);
+                } else if (opt.equals("--countlim")) {
+                    // subsequence count limit
+                    long countlim = nextOptionLong("Count limit on subsequences");
+                    Config.setLong("ape.mt.countlim", countlim);
                 } else if (opt.equals("--savetree")) {
                     String modelFile = nextOptionData();
                     Config.set("ape.test.modelFile", modelFile);
@@ -1361,7 +1361,7 @@ public class Monkey {
 
         long currentTime = SystemClock.elapsedRealtime();
         long halfTime = 0;
-        int halfCount = mCount / 2;
+        int halfCount = 0;
         if (mRunningMillis > 0) {
             mEndTime = currentTime + mRunningMillis;
             halfTime = currentTime + mRunningMillis / 2;
@@ -1371,6 +1371,8 @@ public class Monkey {
             mIgnoreCrashes = false;
             mIgnoreTimeouts = false;
             mKillProcessAfterError = true;
+        } else {
+            halfCount = mCount / 2;
         }
 
         long lastEventsEndTime = 0;
@@ -1383,7 +1385,7 @@ public class Monkey {
                 if (cycleCounter >= mCount) {
                     break;
                 }
-                if (onOneHalf && cycleCounter >= halfCount) {
+                if (onOneHalf && (halfCount != 0 && cycleCounter >= halfCount)) {
                     ((MonkeySourceApe) mEventSource).alertHalf();
                     onOneHalf = false;
                 }
@@ -1392,7 +1394,7 @@ public class Monkey {
                 if (currentTime > mEndTime) {
                     break;
                 }
-                if (onOneHalf && (cycleCounter >= halfCount || (halfTime != 0 && currentTime >= halfTime))) {
+                if (onOneHalf && ((halfCount != 0 && cycleCounter >= halfCount) || (halfTime != 0 && currentTime >= halfTime))) {
                     ((MonkeySourceApe) mEventSource).alertHalf();
                     onOneHalf = false;
                 }

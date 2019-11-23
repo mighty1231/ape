@@ -56,15 +56,6 @@ public class SubsequenceTrie {
             }
         }
 
-        public void notifyRebuild() {
-            if (count != 0) {
-                count = 1;
-            }
-            for (SubsequenceTrieNode node: children.values()) {
-                node.notifyRebuild();
-            }
-        }
-
         // debug
         public void print(int curDepth, int maxDepth, SubsequenceTrieNode curNode) {
             for (int i=0; i<curDepth; i++)
@@ -110,10 +101,6 @@ public class SubsequenceTrie {
         splitCount = 0;
     }
 
-    public void notifyRebuild() {
-        root.notifyRebuild();
-    }
-
     public void moveForward(StateTransition transition) {
         if (curNode != root && curNode.getState() != transition.getSource()) {
             throw new RuntimeException("State does not match!");
@@ -130,10 +117,9 @@ public class SubsequenceTrie {
     }
 
 
-    // evaluate transitions to be rejected,
-    //   but the first one has minimal probability to achieve rejection
-    public List<StateTransition> getTransitionsToReject(SataAgent agent, State newState, long stddevLimit) {
-        if (stddevLimit == 0 || splitCount == 0) {
+    // evaluate map: transitions to be rejected -> probability to be executed
+    public Map<StateTransition, Double> getTransitionsToRejectRatio(SataAgent agent, State newState, long countLimit) {
+        if (countLimit == 0 || splitCount == 0) {
             return null;
         }
 
@@ -161,34 +147,7 @@ public class SubsequenceTrie {
         if (children.isEmpty())
             return null;
 
-        // 1. evaluate list of transition counters, to evaluate average and standard deviation
-        List<Integer> counts = new ArrayList<>();
-        root.collectCount(counts);
-        int numLeafs = counts.size();
-        Integer sum = 0;
-        for (Integer count: counts) {
-            sum += count;
-        }
-
-        // 2. evaluate stdev
-        double average = sum.doubleValue() / numLeafs;
-        double sqsum = 0.0;
-        for (Integer count: counts) {
-            sqsum += (average - count) * (average - count);
-        }
-        System.out.println(String.format("[APE_MT_SS] SubsequenceTrie: sz %d avg %.3f sqsum %.3f limit %d",
-            numLeafs, average, sqsum, stddevLimit * stddevLimit * numLeafs));
-
-        // sqsum / numLeafs > stddevLimit * stddevLimit
-        if (sqsum <= stddevLimit * stddevLimit * numLeafs) {
-            // currently stddev is under the limit
-            return null;
-        }
-
-        // 3. variance increases as X_i->X_i+1, if and only if avg-(n-1)/2n < X_i
-        int countLimit = (int)(average - ((double) (numLeafs - 1)) / (2 * numLeafs));
-        List<StateTransition> ret = new ArrayList<>();
-        double minProbability = 2.0;
+        Map<StateTransition, Double> ret = new HashMap<>();
         State curState = curNode.getState();
         for (Map.Entry<StateTransition, SubsequenceTrieNode> elem: children.entrySet()) {
             if (curNode == root) {
@@ -198,10 +157,11 @@ public class SubsequenceTrie {
             } else if (elem.getKey().getSource() != curState) {
                 throw new RuntimeException("source target miss match!");
             }
+
             List<List<StateTransition>> subsequences = new ArrayList<>();
             List<StateTransition> curSubsequence = new ArrayList<>();
 
-            elem.getValue().collectSubsequenceAboveCount(subsequences, curSubsequence, countLimit);
+            elem.getValue().collectSubsequenceAboveCount(subsequences, curSubsequence, (int) countLimit);
             if (subsequences.isEmpty()) {
                 continue;
             }
@@ -210,18 +170,10 @@ public class SubsequenceTrie {
             double probability = 0.0;
             for (List<StateTransition> subsequence: subsequences) {
                 probability += agent.evaluateSubsequenceProbability(subsequence);
-                for (StateTransition transition: subsequence) {
-                }
             }
 
-            if (probability < minProbability) {
-                minProbability = probability;
-                ret.add(0, elem.getKey());
-            } else {
-                ret.add(elem.getKey());
-            }
+            ret.put(elem.getKey(), probability);
         }
-
         return ret;
     }
 
