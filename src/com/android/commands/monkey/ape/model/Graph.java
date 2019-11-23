@@ -679,10 +679,16 @@ public class Graph implements Serializable {
     }
 
     private String getStateTransitionType(StateTransition edge) {
-        if (edge.isStrong()) {
-            return "";
+        String string = "";
+        if (!edge.isStrong()) {
+            string += ", dashes: true";
         }
-        return ", dashes: true";
+        double ratio = edge.metTargetRatio();
+        if (ratio != 0.0) {
+            int width = 1 + (int) (ratio * 10);
+            string += String.format(", width: %d", width);
+        }
+        return string;
     }
 
     static String escape(String javaString) {
