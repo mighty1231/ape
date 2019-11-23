@@ -1414,10 +1414,6 @@ public class Graph implements Serializable {
         return results;
     }
 
-    public void addMetTargetMethodGUITree(GUITree tree) {
-        metTargetMethodGUITrees.add(tree);
-    }
-
     public boolean hasMetTargetMethod() {
         return !metTargetMethodGUITrees.isEmpty();
     }
@@ -1448,8 +1444,13 @@ public class Graph implements Serializable {
 
             lastTransition.setMetTargetMethod();
             lastGUITree.setMetTargetMethod();
-            addMetTargetMethodGUITree(lastGUITree);
-            subsequenceTrie.markLastNode(lastTransition.getCurrentStateTransition());
+            if (metTargetMethodGUITrees.isEmpty()) {
+                // newly register trie
+                rebuildSubsequenceTrie();
+            } else {
+                subsequenceTrie.markLastNode(lastTransition.getCurrentStateTransition());
+            }
+            metTargetMethodGUITrees.add(lastGUITree);
         }
     }
 
