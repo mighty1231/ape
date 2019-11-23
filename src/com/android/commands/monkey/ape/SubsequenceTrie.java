@@ -85,12 +85,15 @@ public class SubsequenceTrie {
     private SubsequenceTrieNode curNode;
     private int curLength;
 
+    private SubsequenceTrieNode lastNode;
+
     public SubsequenceTrie() {
         root = new SubsequenceTrieNode(null);
         curNode = root;
         curLength = 0;
         totalSize = 0;
         splitCount = 0;
+        lastNode = null;
     }
 
     public void clear() {
@@ -99,12 +102,14 @@ public class SubsequenceTrie {
         curLength = 0;
         totalSize = 0;
         splitCount = 0;
+        lastNode = null;
     }
 
     public void moveForward(StateTransition transition) {
         if (curNode != root && curNode.getState() != transition.getSource()) {
             throw new RuntimeException("State does not match!");
         }
+        lastNode = curNode;
         HashMap<StateTransition, SubsequenceTrieNode> children = curNode.getChildren();
         if (children.containsKey(transition)) {
             curNode = children.get(transition);
@@ -124,12 +129,12 @@ public class SubsequenceTrie {
         }
 
         if (newState == null) {
-            stateSplit();
+            stateSplit(false);
             return null;
         }
 
         HashMap<StateTransition, SubsequenceTrieNode> children;
-        if (curNode != root && !newState.hasMetTargetMethod()) {
+        if (curNode != root) {
             children = curNode.getChildren();
         } else {
             children = new HashMap<>();
@@ -185,10 +190,19 @@ public class SubsequenceTrie {
         root.print(0, 3, curNode);
     }
 
+    public void markLastNode(StateTransition checkLastTransition) {
+        if (lastNode.getTransition() != checkLastTransition) {
+            throw new RuntimeException();
+        }
+        lastNode.incCount();
+    }
+
     // met TargetState
-    public void stateSplit() {
+    public void stateSplit(boolean hasMet) {
         if (curNode == root) { return; }
-        curNode.incCount();
+        if (hasMet)
+            curNode.incCount();
+        lastNode = curNode;
         curNode = root;
         curLength = 0;
         splitCount++;

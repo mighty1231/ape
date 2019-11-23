@@ -836,22 +836,7 @@ public class MonkeySourceApe implements MonkeyEventSource {
             int tr_diff = num_transitions - last_num_transitions;
 
             if (num_transitions >= 1 && mMonkeyServer.metTargetMethods(last_action_generation_time)) {
-                GUITreeTransition lastTransition = transitions.get(num_transitions - 1);
-                if (!lastTransition.hasMetTargetMethod()) {
-                    GUITree lastGUITree = lastTransition.getSource();
-                    if (lastGUITree == null) {
-                        throw new RuntimeException("Should not reach here");
-                    }
-
-                    boolean rebuild = false;
-                    if (!lastGUITree.getCurrentState().hasMetTargetMethod()) { rebuild = true; }
-                    lastTransition.setMetTargetMethod();
-                    lastGUITree.setMetTargetMethod();
-                    graph.addMetTargetMethodGUITree(lastGUITree);
-                    if (rebuild) {
-                        graph.rebuildSubsequenceTrie();
-                    }
-                }
+                graph.markMetTargetMethod();
             }
             last_action_generation_time = System.currentTimeMillis();
             if (tr_diff == 1) {

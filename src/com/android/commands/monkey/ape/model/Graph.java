@@ -1293,14 +1293,14 @@ public class Graph implements Serializable {
             return;
         }
         GUITree lastTree = treeTransitionHistory.get(sz-2).getTarget();
-        if (lastTree.getCurrentState().hasMetTargetMethod() || lastTree != lastTransition.getSource()) {
-            subsequenceTrie.stateSplit();
+        if (lastTree != lastTransition.getSource()) {
+            subsequenceTrie.stateSplit(false);
         }
         subsequenceTrie.moveForward(lastTransition.getCurrentStateTransition());
     }
 
     public void splitSubsequenceTrie() {
-        subsequenceTrie.stateSplit();
+        subsequenceTrie.stateSplit(false);
     }
 
     public Map<StateTransition, Double> getTransitionsToRejectRatio(SataAgent agent, State newState, long countLimit) {
@@ -1317,11 +1317,15 @@ public class Graph implements Serializable {
             return;
         subsequenceTrie.clear();
         GUITree cur = null;
+
         for (GUITreeTransition guiTransition: treeTransitionHistory) {
-            if (cur == null || cur.getCurrentState().hasMetTargetMethod() || cur != guiTransition.getSource()) {
-                subsequenceTrie.stateSplit();
+            if (cur == null || cur != guiTransition.getSource()) {
+                subsequenceTrie.stateSplit(false);
             }
             subsequenceTrie.moveForward(guiTransition.getCurrentStateTransition());
+            if (guiTransition.hasMetTargetMethod()) {
+                subsequenceTrie.stateSplit(true);
+            }
             cur = guiTransition.getTarget();
         }
     }
@@ -1426,6 +1430,21 @@ public class Graph implements Serializable {
             }
         }
         return states;
+    }
+
+    public void markMetTargetMethod() {
+        GUITreeTransition lastTransition = treeTransitionHistory.get(treeTransitionHistory.size() - 1);
+        if (!lastTransition.hasMetTargetMethod()) {
+            GUITree lastGUITree = lastTransition.getSource();
+            if (lastGUITree == null) {
+                throw new RuntimeException("Should not reach here");
+            }
+
+            lastTransition.setMetTargetMethod();
+            lastGUITree.setMetTargetMethod();
+            addMetTargetMethodGUITree(lastGUITree);
+            subsequenceTrie.markLastNode(lastTransition.getCurrentStateTransition());
+        }
     }
 
     public void addMetropolisHastingsRejectCount() {
