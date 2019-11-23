@@ -607,7 +607,7 @@ public class SataAgent extends StatefulAgent {
                         qprime += entry.getValue();
                     }
                 }
-                qprimeCache.put(xprime, qprime);
+                qprimeCache.put(xprime, (qprime + 1) / 2);
             } else {
                 qprime = cached_qprime;
             }
