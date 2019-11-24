@@ -60,6 +60,9 @@ public abstract class ApeAgent implements Agent {
         if (type.equals("sata")) {
             return new SataAgent(ape, graph);
         }
+        if (type.equals("target")) {
+            return new TargetAgent(ape, graph);
+        }
         if (type.equals("random")) {
             return new RandomAgent(ape, graph);
         }

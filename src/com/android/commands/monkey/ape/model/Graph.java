@@ -19,7 +19,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 
 import com.android.commands.monkey.ape.ActionFilter;
-import com.android.commands.monkey.ape.agent.SataAgent;
+import com.android.commands.monkey.ape.agent.TargetAgent;
 import com.android.commands.monkey.ape.Subsequence;
 import com.android.commands.monkey.ape.SubsequenceFilter;
 import com.android.commands.monkey.ape.SubsequenceTrie;
@@ -119,7 +119,6 @@ public class Graph implements Serializable {
     private boolean verbose = true;
 
     private List<GUITree> metTargetMethodGUITrees = new ArrayList<>();
-    private int metropolisHastingsRejectCount = 0;
 
     public Graph() {
         subsequenceTrie = new SubsequenceTrie();
@@ -1286,8 +1285,6 @@ public class Graph implements Serializable {
 
     // after GUITreeTransition added and marked, put it into subsequenceTrie
     public void forwardSubsequenceTrie(GUITreeTransition lastTransition) {
-        if (metTargetMethodGUITrees.isEmpty())
-            return;
         int sz = treeTransitionHistory.size();
         int count = subsequenceTrie.getTransitionCount();
         if (sz != count + 1) {
@@ -1309,7 +1306,7 @@ public class Graph implements Serializable {
         subsequenceTrie.stateSplit(false);
     }
 
-    public Map<StateTransition, Double> getTransitionsToRejectRatio(SataAgent agent, State newState, long countLimit) {
+    public Map<StateTransition, Double> getTransitionsToRejectRatio(TargetAgent agent, State newState, long countLimit) {
         return subsequenceTrie.getTransitionsToRejectRatio(agent, newState, countLimit);
     }
 
@@ -1319,8 +1316,6 @@ public class Graph implements Serializable {
 
     // @TODO
     public void rebuildSubsequenceTrie() {
-        if (metTargetMethodGUITrees.isEmpty())
-            return;
         subsequenceTrie.clear();
         GUITree cur = null;
 
@@ -1434,7 +1429,7 @@ public class Graph implements Serializable {
         return states;
     }
 
-    public void markMetTargetMethod() {
+    public boolean markMetTargetMethod() {
         GUITreeTransition lastTransition = treeTransitionHistory.get(treeTransitionHistory.size() - 1);
         if (!lastTransition.hasMetTargetMethod()) {
             GUITree lastGUITree = lastTransition.getSource();
@@ -1444,17 +1439,10 @@ public class Graph implements Serializable {
 
             lastTransition.setMetTargetMethod();
             lastGUITree.setMetTargetMethod();
-            if (metTargetMethodGUITrees.isEmpty()) {
-                // newly register trie
-                rebuildSubsequenceTrie();
-            } else {
-                subsequenceTrie.markLastNode(lastTransition.getCurrentStateTransition());
-            }
             metTargetMethodGUITrees.add(lastGUITree);
+            subsequenceTrie.stateSplit(true);
+            return true;
         }
-    }
-
-    public void addMetropolisHastingsRejectCount() {
-        metropolisHastingsRejectCount++;
+        return false;
     }
 }

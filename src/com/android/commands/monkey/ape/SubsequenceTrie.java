@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.ArrayList;
 
 import com.android.commands.monkey.ape.Subsequence;
-import com.android.commands.monkey.ape.agent.SataAgent;
+import com.android.commands.monkey.ape.agent.TargetAgent;
 import com.android.commands.monkey.ape.model.State;
 import com.android.commands.monkey.ape.model.StateTransition;
 import com.android.commands.monkey.ape.utils.Config;
@@ -85,15 +85,12 @@ public class SubsequenceTrie {
     private SubsequenceTrieNode curNode;
     private int curLength;
 
-    private SubsequenceTrieNode lastNode;
-
     public SubsequenceTrie() {
         root = new SubsequenceTrieNode(null);
         curNode = root;
         curLength = 0;
         totalSize = 0;
         splitCount = 0;
-        lastNode = null;
     }
 
     public void clear() {
@@ -102,14 +99,12 @@ public class SubsequenceTrie {
         curLength = 0;
         totalSize = 0;
         splitCount = 0;
-        lastNode = null;
     }
 
     public void moveForward(StateTransition transition) {
         if (curNode != root && curNode.getState() != transition.getSource()) {
             throw new RuntimeException("State does not match!");
         }
-        lastNode = curNode;
         HashMap<StateTransition, SubsequenceTrieNode> children = curNode.getChildren();
         if (children.containsKey(transition)) {
             curNode = children.get(transition);
@@ -123,7 +118,7 @@ public class SubsequenceTrie {
 
 
     // evaluate map: transitions to be rejected -> probability to be executed
-    public Map<StateTransition, Double> getTransitionsToRejectRatio(SataAgent agent, State newState, long countLimit) {
+    public Map<StateTransition, Double> getTransitionsToRejectRatio(TargetAgent agent, State newState, long countLimit) {
         if (countLimit == 0 || splitCount == 0) {
             return null;
         }
@@ -190,19 +185,15 @@ public class SubsequenceTrie {
         root.print(0, 3, curNode);
     }
 
-    public void markLastNode(StateTransition checkLastTransition) {
-        if (lastNode.getTransition() != checkLastTransition) {
-            throw new RuntimeException();
-        }
-        lastNode.incCount();
-    }
-
     // met TargetState
     public void stateSplit(boolean hasMet) {
         if (curNode == root) { return; }
-        if (hasMet)
+        if (hasMet) {
+            if (curNode.getTransition().metTargetRatio() == 0.0) {
+                throw new RuntimeException();
+            }
             curNode.incCount();
-        lastNode = curNode;
+        }
         curNode = root;
         curLength = 0;
         splitCount++;

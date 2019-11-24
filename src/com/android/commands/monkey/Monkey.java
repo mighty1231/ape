@@ -274,7 +274,6 @@ public class Monkey {
     /* Communicate with Android Runtime in target app with MonkeyServer */
     private boolean mCommunicateWithART = false;
     private boolean mTargetMtdWithART = false;
-    private boolean mNoMtdGuide = false;
     private int mTestMode = 0;
 
     private MonkeyServer mMonkeyServer;
@@ -752,7 +751,7 @@ public class Monkey {
                 mMonkeyServer = MonkeyServer.getInstance();
             }
             mEventSource = new MonkeySourceApe(mRandom, mMainApps, mThrottle,
-                    mRandomizeThrottle, mOutputDirectory, mNoMtdGuide);
+                    mRandomizeThrottle, mOutputDirectory);
             mEventSource.setVerbose(mVerbose);
             if (mMonkeyServer != null) {
                 try {
@@ -1021,9 +1020,6 @@ public class Monkey {
                     mTargetMtdWithART = true;
                     String targetmtdfile = nextOptionData();
                     Config.set("ape.mt.targetmtdfile", targetmtdfile);
-                } else if (opt.equals("--no-mtdguide")) {
-                    // target but no induce. just for log
-                    mNoMtdGuide = true;
                 } else if (opt.equals("--countlim")) {
                     // subsequence count limit
                     long countlim = nextOptionLong("Count limit on subsequences");
@@ -1058,12 +1054,6 @@ public class Monkey {
 
         // To activate art with targeting methods
         if (mTargetMtdWithART && !mCommunicateWithART) {
-            System.err.println("** Error: To target methods, turn on --mt option");
-            showUsage();
-            return false;
-        }
-
-        if (mNoMtdGuide && !mCommunicateWithART) {
             System.err.println("** Error: To target methods, turn on --mt option");
             showUsage();
             return false;
@@ -1719,7 +1709,6 @@ public class Monkey {
         usage.append("              [--periodic-bugreport]\n");
         usage.append("              [--mt]\n");
         usage.append("              [--mtdtarget MTD_TARGET_FILE]\n");
-        usage.append("              [--no-mtdguide]\n");
         usage.append("              [--target-all-thread]\n");
         usage.append("              COUNT\n");
         System.err.println(usage.toString());

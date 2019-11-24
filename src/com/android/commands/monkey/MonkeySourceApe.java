@@ -56,7 +56,7 @@ import com.android.commands.monkey.ape.utils.Utils;
 import com.android.commands.monkey.ape.MonkeyServer;
 import com.android.commands.monkey.ape.model.Graph;
 import com.android.commands.monkey.ape.agent.StatefulAgent;
-import com.android.commands.monkey.ape.agent.SataAgent;
+import com.android.commands.monkey.ape.agent.TargetAgent;
 import com.android.commands.monkey.ape.model.Model.ActionRecord;
 import com.android.commands.monkey.ape.model.StateTransition;
 import com.android.commands.monkey.ape.tree.GUITree;
@@ -125,8 +125,6 @@ public class MonkeySourceApe implements MonkeyEventSource {
 
     int nullInfoCounter = 0;
     int lostFocusedCounter = 0;
-
-    private boolean mNoMtdGuide;
 
     /**
      * UiAutomation client and connection
@@ -222,7 +220,7 @@ public class MonkeySourceApe implements MonkeyEventSource {
     }
 
     public MonkeySourceApe(Random random,
-            List<ComponentName> MainApps, long throttle, boolean randomizeThrottle, File outputDirectory, boolean noMtdGuide) {
+            List<ComponentName> MainApps, long throttle, boolean randomizeThrottle, File outputDirectory) {
         mRandom = random;
         mMainApps = MainApps;
         mThrottle = throttle;
@@ -244,8 +242,6 @@ public class MonkeySourceApe implements MonkeyEventSource {
 
         last_action_generation_time = 0;
         last_num_transitions = 0;
-
-        mNoMtdGuide = noMtdGuide;
     }
 
     static PrintWriter openWriter(File logFile) {
@@ -836,7 +832,9 @@ public class MonkeySourceApe implements MonkeyEventSource {
             int tr_diff = num_transitions - last_num_transitions;
 
             if (num_transitions >= 1 && mMonkeyServer.metTargetMethods(last_action_generation_time)) {
-                graph.markMetTargetMethod();
+                if (graph.markMetTargetMethod() && (mAgent instanceof TargetAgent)) {
+                    ((TargetAgent) mAgent).metTarget();
+                }
             }
             last_action_generation_time = System.currentTimeMillis();
             if (tr_diff == 1) {
@@ -1331,8 +1329,8 @@ public class MonkeySourceApe implements MonkeyEventSource {
     private List<Long> eventPoppedTimes;
 
     public void alertHalf() {
-        if (mAgent instanceof SataAgent && mMonkeyServer != null && !mNoMtdGuide) {
-            ((SataAgent) mAgent).alertHalf();
+        if (mAgent instanceof TargetAgent && mMonkeyServer != null) {
+            ((TargetAgent) mAgent).alertHalf();
         }
     }
 
@@ -1362,12 +1360,7 @@ public class MonkeySourceApe implements MonkeyEventSource {
                         }
                         long result = mMonkeyServer.waitForIdle(lastEventPoppedTime, waitMillis);
                         eventPoppedTimes.add(lastEventPoppedTime);
-                        System.out.println("[APE_MT] ACTION " + lastAction);
-                        System.out.println("[APE_MT] " + lastRecord.clockTimestamp + "/" + lastEventPoppedTime);
                     }
-
-                    /* Waiting for generate events */
-                    sleep(200);
                 }
 
                 // original code from APE

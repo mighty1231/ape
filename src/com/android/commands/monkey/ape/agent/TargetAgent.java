@@ -6,6 +6,8 @@ import static com.android.commands.monkey.ape.utils.Config.fallbackToGraphTransi
 import static com.android.commands.monkey.ape.utils.Config.fillTransitionsByHistory;
 import static com.android.commands.monkey.ape.utils.Config.trivialActivityRankThreshold;
 import static com.android.commands.monkey.ape.utils.Config.useActionDiffer;
+import static com.android.commands.monkey.ape.utils.Config.mhratio1;
+import static com.android.commands.monkey.ape.utils.Config.mhratio2;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -44,7 +46,7 @@ import com.android.commands.monkey.ape.utils.RandomHelper;
 
 import android.content.ComponentName;
 
-public class SataAgent extends StatefulAgent {
+public class TargetAgent extends StatefulAgent {
 
 
     SubsequenceFilter unsaturatedActionsFilter = new SubsequenceFilter() {
@@ -163,9 +165,9 @@ public class SataAgent extends StatefulAgent {
         }
     };
 
-    static enum SataEventType {
+    static enum TargetEventType {
         TRIVIAL_ACTIVITY,
-        SATURATED_STATE, USE_BUFFER, EARLY_STAGE,
+        SATURATED_STATE, USE_BUFFER, EARLY_STAGE, TARGET,
         EPSILON_GREEDY, RANDOM, NULL, BUFFER_LOSS, FILL_BUFFER, BAD_STATE;
     }
 
@@ -173,37 +175,79 @@ public class SataAgent extends StatefulAgent {
      * Control the exploration and exploitation. The idea is borrowed from reinforcement learning.
      */
     private double epsilon;
+    private static final int MET_TARGET_WEIGHT = 8;
 
     private StateActionDiffer actionDiffer = new StateActionDiffer();
 
     private int[] actionCounters;
     private ActivityNode backToActivity;
+    private boolean changeReady = false;
+    private final Map<State, Double> stateToScore = new HashMap<>();
+    private int earlyStageBuffer;
+    private long countLimit;
+    private int metTargetCounter;
+    private int targetNotFoundCounter;
+    private Map<State, Map<StateTransition, Double>> stateToTransitionToScore = new HashMap<>();
 
-    public SataAgent(MonkeySourceApe ape, Graph graph) {
+    public TargetAgent(MonkeySourceApe ape, Graph graph) {
         this(ape, graph, defaultEpsilon);
+        earlyStageBuffer = 0;
+        countLimit = Config.getLong("ape.mt.countlim", 0);
+        metTargetCounter = 0;
+        targetNotFoundCounter = 0;
+        this.disableFuzzing = true;
     }
 
-    public SataAgent(MonkeySourceApe ape, Graph graph, double epsilon) {
+    public TargetAgent(MonkeySourceApe ape, Graph graph, double epsilon) {
         super(ape, graph);
         this.epsilon = epsilon;
-        this.actionCounters = new int[SataEventType.values().length];
+        earlyStageBuffer = 0;
+        countLimit = Config.getLong("ape.mt.countlim", 0);
+        metTargetCounter = 0;
+        targetNotFoundCounter = 0;
+
+        this.actionCounters = new int[TargetEventType.values().length];
+        this.disableFuzzing = true;
     }
 
     @Override
     public void startNewEpisode() {
+        getGraph().splitSubsequenceTrie();
         super.startNewEpisode();
+        metTargetCounter = 0;
+        targetNotFoundCounter = 0;
+    }
+
+    @Override
+    protected void checkStable() {
+        if (!isTargetMode()) {
+            super.checkStable();
+        } else {
+            if (metTargetCounter >= 5) {
+                requestRestart();
+                metTargetCounter = 0;
+            }
+            if (targetNotFoundCounter >= 5) {
+                requestRestart();
+                targetNotFoundCounter = 0;
+            }
+        }
+    }
+
+    public void metTarget() {
+        metTargetCounter++;
     }
 
     protected boolean isEntryState(State state) {
         return this.getGraph().isEntryState(state);
     }
 
-    protected void logActionSelected(Action action, SataEventType type) {
+    protected void logActionSelected(Action action, TargetEventType type) {
         Logger.iformat("Select action %s by strategy %s", action, type);
         logEvent(type);
     }
 
-    protected void logEvent(SataEventType type) {
+    protected void logEvent(TargetEventType type) {
         int ordinal = type.ordinal();
         actionCounters[ordinal] = actionCounters[ordinal] + 1;
     }
@@ -214,8 +258,8 @@ public class SataAgent extends StatefulAgent {
     }
 
     protected void printCounters() {
-        SataEventType[] types = SataEventType.values();
-        for (SataEventType type : types) {
+        TargetEventType[] types = TargetEventType.values();
+        for (TargetEventType type : types) {
             Logger.format("%6d  %s", actionCounters[type.ordinal()], type);
         }
     }
@@ -255,7 +299,7 @@ public class SataAgent extends StatefulAgent {
                 ModelAction action = moveToState(newState, state, true);
                 if (action != null) {
                     Logger.iprintln("Backtrack to an unsaturated state: " + state);
-                    logActionSelected(action, SataEventType.SATURATED_STATE);
+                    logActionSelected(action, TargetEventType.SATURATED_STATE);
                     return action;
                 } else {
                     Logger.iformat("Cannot backtrack to %s", state);
@@ -287,47 +331,68 @@ public class SataAgent extends StatefulAgent {
                     Logger.iformat("- %s", action);
                 }
             }
+            if (changeReady) {
+                if (!getGraph().hasMetTargetMethod()) {
+                    System.out.println("[APE_MT_WARNING] TargetMethod activated but target method is not found");
+                    earlyStageBuffer = 10;
+                } else {
+                    if (disableFuzzing == true && earlyStageBuffer == 0) {
+                        disableFuzzing = false;
+                        System.out.println("[APE_MT] TargetAgent: strategy changed");
+                    }
+                }
+            }
         }
         Action resolved = null;
         resolved = selectNewActionFromBuffer();
         if (resolved != null) {
-            logActionSelected(resolved, SataEventType.USE_BUFFER);
+            logActionSelected(resolved, TargetEventType.USE_BUFFER);
+            return resolved;
+        }
+        resolved = selectNewActionBackToActivity();
+        if (resolved != null) {
+            logActionSelected(resolved, TargetEventType.TRIVIAL_ACTIVITY);
             return resolved;
         }
 
-        resolved = selectNewActionBackToActivity();
-        if (resolved != null) {
-            logActionSelected(resolved, SataEventType.TRIVIAL_ACTIVITY);
-            return resolved;
+        if (isTargetMode() && earlyStageBuffer == 0) {
+            resolved = selectNewActionStochasticallyToTarget();
+            if (resolved != null) {
+                logActionSelected(resolved, TargetEventType.TARGET);
+                return resolved;
+            }
         }
+
+        if (earlyStageBuffer > 0)
+            earlyStageBuffer--;
 
         resolved = selectNewActionEarlyStageForward();
         if (resolved != null) {
-            logActionSelected(resolved, SataEventType.EARLY_STAGE);
+            logActionSelected(resolved, TargetEventType.EARLY_STAGE);
             return resolved;
         }
 
         resolved = selectNewActionForTrivialActivity();
         if (resolved != null) {
-            logActionSelected(resolved, SataEventType.TRIVIAL_ACTIVITY);
+            logActionSelected(resolved, TargetEventType.TRIVIAL_ACTIVITY);
             return resolved;
         }
 
         resolved = selectNewActionEarlyStageBackward();
         if (resolved != null) {
-            logActionSelected(resolved, SataEventType.EARLY_STAGE);
+            logActionSelected(resolved, TargetEventType.EARLY_STAGE);
             return resolved;
         }
 
         resolved = selectNewActionEpsilonGreedyRandomly();
         if (resolved != null) {
-            logActionSelected(resolved, SataEventType.EPSILON_GREEDY);
+            logActionSelected(resolved, TargetEventType.EPSILON_GREEDY);
             return resolved;
         }
 
         resolved = handleNullAction();
         if (resolved != null) {
-            logActionSelected(resolved, SataEventType.NULL);
+            logActionSelected(resolved, TargetEventType.NULL);
             return resolved;
         }
 
@@ -339,9 +404,221 @@ public class SataAgent extends StatefulAgent {
     }
 
     public void onBufferLoss(State actual, State expected) {
-        logEvent(SataEventType.BUFFER_LOSS);
+        logEvent(TargetEventType.BUFFER_LOSS);
     }
 
+    public Map<StateTransition, Double> getTransitionScore(State state) {
+        if (stateToTransitionToScore.containsKey(state)) {
+            return stateToTransitionToScore.get(state);
+        }
+        Map<StateTransition, Double> transitionToScore = new HashMap<>();
+        Map<StateTransition, ModelAction> transitionToAction = new HashMap<>();
+        fillProbabilityMap(state, transitionToAction, transitionToScore);
+        stateToTransitionToScore.put(state, transitionToScore);
+        return transitionToScore;
+    }
+
+    public void fillProbabilityMap(State state, Map<StateTransition, ModelAction> transitionToAction, Map<StateTransition, Double> transitionToScore) {
+        // assume stateToScore is filled
+        // This must do not append to stateToTransitionScore. transitionToScore can be modified after this method
+        List<ModelAction> actions = state.getActions();
+        Set<StateTransition> transitions = getGraph().getOutStateTransitions(state);
+        Map<State, Integer> countTransitionOnTarget = new HashMap<>();
+
+        double totalScore = 0.0;
+        for (StateTransition transition: transitions) {
+            for (ModelAction action: actions) {
+                if (transition.getAction() == action) {
+                    transitionToAction.put(transition, action);
+                    State target = transition.getTarget();
+                    Double score = stateToScore.get(target);
+                    if (score != null) {
+                        transitionToScore.put(transition, score);
+                        totalScore += score;
+                        if (countTransitionOnTarget.containsKey(target)) {
+                            countTransitionOnTarget.put(target, countTransitionOnTarget.get(target)+1);
+                        } else {
+                            countTransitionOnTarget.put(target, 1);
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+
+        double totalScore2 = 0.0;
+        for (Map.Entry<StateTransition, Double> entry: transitionToScore.entrySet()) {
+            StateTransition transition = entry.getKey();
+            double score = entry.getValue();
+            score /= countTransitionOnTarget.get(transition.getTarget());
+            double ratio = transition.metTargetRatio();
+            score += ratio * (MET_TARGET_WEIGHT * totalScore);
+            entry.setValue(score);
+            totalScore2 += score;
+        }
+
+        // normalzize
+        for (Map.Entry<StateTransition, Double> entry : transitionToScore.entrySet()) {
+            entry.setValue(entry.getValue() / totalScore2);
+        }
+    }
+
+    public double evaluateSubsequenceProbability(List<StateTransition> subsequence) {
+        if (subsequence == null || subsequence.isEmpty())
+            return 1.0;
+        State state = subsequence.get(0).getSource();
+        double ret = 1.0;
+
+        for (StateTransition transition: subsequence) {
+            if (transition.getSource() != state)
+                throw new RuntimeException("State miss match");
+            ret *= getTransitionScore(state).get(transition);
+            state = transition.getTarget();
+        }
+        return ret;
+    }
+
+    protected ModelAction selectNewActionStochasticallyToTarget() {
+        Graph graph = getGraph();
+        Random random = ape.getRandom();
+        List<ModelAction> actions = newState.getActions();
+        if (actions.size() == 0)
+            return null;
+
+        LinkedList<State> stateQueue = new LinkedList<>();
+        Set<State> targetStates = graph.getMetTargetMethodStates();
+        if (targetStates == null || targetStates.isEmpty()) {
+            System.out.println("[APE_MT] targetStates.size = 0");
+            return null;
+        }
+        stateToTransitionToScore.clear();
+        stateToScore.clear();
+        System.out.println("[APE_MT] targetStates.size = " + targetStates.size());
+
+        // fill scores for target states
+        for (State state: targetStates) {
+            Set<StateTransition> transitions = graph.getOutStateTransitions(state);
+            double score = 0.0;
+            for (StateTransition transition: transitions) {
+                double new_score = transition.metTargetRatio();
+                if (new_score > score)
+                    score = new_score;
+            }
+            if (score == 0.0) { throw new RuntimeException("[APE_MT] score should not be 0"); }
+            stateToScore.put(state, score);
+            System.out.println(String.format("[APE_MT] targetState %s score %.2f", state, score));
+            stateQueue.addLast(state);
+        }
+
+        // fill scores all states
+        Comparator<State> reversedStateComparator = new Comparator<State>() {
+            @Override
+            public int compare(State s1, State s2) {
+                double diff = stateToScore.get(s1) - stateToScore.get(s2);
+                if (diff > 0.0) return -1;
+                else if (diff < 0.0) return 1;
+                return 0;
+            }
+        };
+        Collections.sort(stateQueue, reversedStateComparator);
+        double currentScore = -1.0;
+        boolean thisFound = false;
+        while (!stateQueue.isEmpty()) {
+            State state = stateQueue.removeFirst();
+            if (state == newState) {
+                currentScore = stateToScore.get(state);
+                thisFound = true;
+            }
+            double score;
+            if (targetStates.contains(state))
+                score = stateToScore.get(state) * mhratio1;
+            else
+                score = stateToScore.get(state) * mhratio2;
+            Set<StateTransition> transitions = graph.getInStateTransitions(state);
+            int insertion_idx = -1;
+            for (StateTransition transition: transitions) {
+                State source = transition.getSource();
+                if (source == null || stateToScore.containsKey(source))
+                    continue;
+                stateToScore.put(source, score);
+                if (insertion_idx == -1) {
+                    insertion_idx = Collections.binarySearch(stateQueue, source, reversedStateComparator);
+                    if (insertion_idx < 0)
+                        insertion_idx = ~insertion_idx;
+                }
+                stateQueue.add(insertion_idx, source);
+            }
+        }
+        // unreachable to target
+        if (thisFound == false) {
+            System.out.println("[APE_MT_WARNING] There is no way to go to target.");
+            earlyStageBuffer += 5;
+            targetNotFoundCounter ++;
+            return null;
+        }
+
+        // evaluate next transitions
+        Map<StateTransition, ModelAction> transitionToAction = new HashMap<>();
+        Map<StateTransition, Double> transitionToScore = new HashMap<>();
+        fillProbabilityMap(newState, transitionToAction, transitionToScore);
+
+        if (transitionToAction.isEmpty()) {
+            System.out.println("[APE_MT_WARNING] Transition is not found");
+            earlyStageBuffer += 5;
+            targetNotFoundCounter ++;
+            return null;
+        }
+
+        targetNotFoundCounter = 0;
+        Map<StateTransition, Double> transitionsToRejectRatio = graph.getTransitionsToRejectRatio(this, newState, countLimit);
+        if (transitionsToRejectRatio != null && !transitionsToRejectRatio.isEmpty()) {
+            double sum = 0.0;
+            for (Map.Entry<StateTransition, Double> entry: transitionToScore.entrySet()) {
+                double originalValue = entry.getValue();
+                Double rejectRatio = transitionsToRejectRatio.get(entry.getKey());
+                if (rejectRatio == null) {
+                    sum += originalValue;
+                } else {
+                    double newValue = originalValue * (1.0 - rejectRatio);
+                    entry.setValue(newValue);
+                    sum += newValue;
+                }
+            }
+
+            if (sum == 0.0) {
+                System.out.println("[APE_MT_WARNING] Reject all transitions with probability 1.0");
+                earlyStageBuffer += 5;
+                return null;
+            }
+            if (sum > 1.1) {
+                throw new RuntimeException();
+            }
+
+            // normalize
+            for (Map.Entry<StateTransition, Double> entry: transitionToScore.entrySet()) {
+                entry.setValue(entry.getValue() / sum);
+            }
+        }
+
+        double randomValue = random.nextDouble();
+        double cur = 0.0;
+        StateTransition chosenTransition = null;
+        StateTransition lastTransition = null;
+        for (Map.Entry<StateTransition, Double> entry: transitionToScore.entrySet()) {
+            lastTransition = entry.getKey();
+            cur += entry.getValue();
+            if (cur > randomValue) {
+                chosenTransition = entry.getKey();
+                break;
+            }
+        }
+        if (chosenTransition == null) {
+            chosenTransition = lastTransition;
+        }
+        System.out.println(String.format("[APE_MT_DEBUG] candidate transition = %s with prob %.3f", chosenTransition, transitionToScore.get(chosenTransition)));
+        return transitionToAction.get(chosenTransition);
+
+    }
     protected ModelAction selectNewActionEpsilonGreedyRandomly() {
         ModelAction back = newState.getBackAction();
         if (back.isValid()) {
@@ -359,7 +636,7 @@ public class SataAgent extends StatefulAgent {
     }
 
     public void onRefillBuffer(Subsequence seq) {
-        logEvent(SataEventType.FILL_BUFFER);
+        logEvent(TargetEventType.FILL_BUFFER);
     }
 
     protected ModelAction fillTransition(State[] states) {
@@ -608,12 +885,14 @@ public class SataAgent extends StatefulAgent {
 
     @Override
     public String getLoggerName() {
-        return "SATA";
+        return "TARGET";
     }
 
     @Override
     public void onActivityStopped() {
         super.onActivityStopped();
+        metTargetCounter = 0;
+        targetNotFoundCounter = 0;
     }
 
     protected boolean egreedy() {
@@ -802,6 +1081,18 @@ public class SataAgent extends StatefulAgent {
         return count / total;
     }
 
+    public void alertHalf() {
+        Logger.iprintln("Half time/counter consumed");
+        changeReady = true;
+        if (getGraph().hasMetTargetMethod()) {
+            disableFuzzing = false;
+        }
+    }
+
+    public boolean isTargetMode() {
+        return disableFuzzing == false;
+    }
+
     protected ModelAction selectNewActionEarlyStageForwardGreedy() {
         assertEmptyActionBuffer();
         ModelAction action = findGreedyActionForward(currentState, newState);
@@ -908,7 +1199,7 @@ public class SataAgent extends StatefulAgent {
     }
 
     protected void printStrategy() {
-        Logger.format("Sata Strategy: buffer size (%d)", actionBufferSize());
+        Logger.format("Target Strategy: buffer size (%d)", actionBufferSize());
         printCounters();
         newState.printActions();
     }
@@ -925,7 +1216,7 @@ public class SataAgent extends StatefulAgent {
 
     @Override
     public void onBadState(int lastBadStateCount, int badStateCounter) {
-        logEvent(SataEventType.BAD_STATE);
+        logEvent(TargetEventType.BAD_STATE);
     }
 
 }
