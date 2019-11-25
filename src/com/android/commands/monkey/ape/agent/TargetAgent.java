@@ -187,6 +187,7 @@ public class TargetAgent extends StatefulAgent {
     private long countLimit;
     private int metTargetCounter;
     private int targetNotFoundCounter;
+    private int metNoTargetCounter;
     private Map<State, Map<StateTransition, Double>> stateToTransitionToScore = new HashMap<>();
 
     public TargetAgent(MonkeySourceApe ape, Graph graph) {
@@ -195,7 +196,8 @@ public class TargetAgent extends StatefulAgent {
         countLimit = Config.getLong("ape.mt.countlim", 0);
         metTargetCounter = 0;
         targetNotFoundCounter = 0;
-        this.disableFuzzing = true;
+        metNoTargetCounter = 0;
+        disableFuzzing = true;
     }
 
     public TargetAgent(MonkeySourceApe ape, Graph graph, double epsilon) {
@@ -205,9 +207,10 @@ public class TargetAgent extends StatefulAgent {
         countLimit = Config.getLong("ape.mt.countlim", 0);
         metTargetCounter = 0;
         targetNotFoundCounter = 0;
+        metNoTargetCounter = 0;
 
         this.actionCounters = new int[TargetEventType.values().length];
-        this.disableFuzzing = true;
+        disableFuzzing = true;
     }
 
     @Override
@@ -216,6 +219,7 @@ public class TargetAgent extends StatefulAgent {
         super.startNewEpisode();
         metTargetCounter = 0;
         targetNotFoundCounter = 0;
+        metNoTargetCounter = 0;
     }
 
     @Override
@@ -223,6 +227,8 @@ public class TargetAgent extends StatefulAgent {
         if (!isTargetMode()) {
             super.checkStable();
         } else {
+            Logger.format("Graph Stable Counter: metTargetCounter (%d), targetNotFoundCounter (%d)",
+                    metTargetCounter, targetNotFoundCounter);
             if (metTargetCounter >= 5) {
                 requestRestart();
                 metTargetCounter = 0;
@@ -231,11 +237,19 @@ public class TargetAgent extends StatefulAgent {
                 requestRestart();
                 targetNotFoundCounter = 0;
             }
+            if (metNoTargetCounter >= 300) {
+                requestRestart();
+                metNoTargetCounter = 0;
+            }
         }
     }
 
     public void metTarget() {
         metTargetCounter++;
+    }
+
+    public void metNonTarget() {
+        metNoTargetCounter++;
     }
 
     protected boolean isEntryState(State state) {
@@ -338,6 +352,7 @@ public class TargetAgent extends StatefulAgent {
                 } else {
                     if (disableFuzzing == true && earlyStageBuffer == 0) {
                         disableFuzzing = false;
+                        earlyStageBuffer = 30;
                         System.out.println("[APE_MT] TargetAgent: strategy changed");
                     }
                 }
@@ -478,6 +493,11 @@ public class TargetAgent extends StatefulAgent {
         return ret;
     }
 
+    public double dupCountToRejectRatio(int count) {
+        // 1 - 1/(c+1)
+        return ((double)1.0 - ((double)1.0) / (count + 1));
+    }
+
     protected ModelAction selectNewActionStochasticallyToTarget() {
         Graph graph = getGraph();
         Random random = ape.getRandom();
@@ -576,9 +596,14 @@ public class TargetAgent extends StatefulAgent {
             for (Map.Entry<StateTransition, Double> entry: transitionToScore.entrySet()) {
                 double originalValue = entry.getValue();
                 Double rejectRatio = transitionsToRejectRatio.get(entry.getKey());
-                if (rejectRatio == null) {
+                if (rejectRatio == null || metNoTargetCounter >= 80) {
                     sum += originalValue;
                 } else {
+                    // too long non-taget sequence, reduce reject ratio
+                    if (metNoTargetCounter >= 30) {
+                        rejectRatio *= ((double)(80 - metNoTargetCounter)) / 50;
+                    }
+
                     double newValue = originalValue * (1.0 - rejectRatio);
                     entry.setValue(newValue);
                     sum += newValue;

@@ -12,6 +12,14 @@ import com.android.commands.monkey.ape.model.StateTransition;
 import com.android.commands.monkey.ape.utils.Config;
 
 public class SubsequenceTrie {
+    static class Pair<L,R> {
+        final L left;
+        final R right;
+        public Pair(L left, R right) {
+            this.left = left;
+            this.right = right;
+        }
+    }
     static class SubsequenceTrieNode { 
         private StateTransition transition;
         private State state;
@@ -44,9 +52,9 @@ public class SubsequenceTrie {
             }
         }
 
-        public void collectSubsequenceAboveCount(List<List<StateTransition>> subsequences, List<StateTransition> curSubsequence, int countLimit) {
+        public void collectSubsequenceAboveCount(List<Pair<List<StateTransition>, Integer>> subsequences, List<StateTransition> curSubsequence, int countLimit) {
             if (count > countLimit) {
-                subsequences.add(curSubsequence);
+                subsequences.add(new Pair<>(curSubsequence, count));
                 return;
             }
             for (Map.Entry<StateTransition, SubsequenceTrieNode> elem: children.entrySet()) {
@@ -129,7 +137,8 @@ public class SubsequenceTrie {
         }
 
         HashMap<StateTransition, SubsequenceTrieNode> children;
-        if (curNode != root) {
+        if (curNode != root && curNode.getTransition().metTargetRatio() < 0.5) {
+            // suppose the transition would make split
             children = curNode.getChildren();
         } else {
             children = new HashMap<>();
@@ -141,7 +150,9 @@ public class SubsequenceTrie {
         }
 
         if (curNode != root && newState != curNode.getState()) {
-            throw new RuntimeException();
+            System.out.println("[APE_MT_WARNING] State " + newState + " curNode state " + curNode.getState());
+            stateSplit(false);
+            return null;
         }
 
         if (children.isEmpty())
@@ -149,6 +160,7 @@ public class SubsequenceTrie {
 
         Map<StateTransition, Double> ret = new HashMap<>();
         State curState = curNode.getState();
+        System.out.println("[APE_MT_DEBUG] curState "+ curState);
         for (Map.Entry<StateTransition, SubsequenceTrieNode> elem: children.entrySet()) {
             if (curNode == root) {
                 if (elem.getKey().getSource() != newState) {
@@ -158,22 +170,24 @@ public class SubsequenceTrie {
                 throw new RuntimeException("source target miss match!");
             }
 
-            List<List<StateTransition>> subsequences = new ArrayList<>();
+            List<Pair<List<StateTransition>, Integer>> subsequencesAndCount = new ArrayList<>();
             List<StateTransition> curSubsequence = new ArrayList<>();
 
-            elem.getValue().collectSubsequenceAboveCount(subsequences, curSubsequence, (int) countLimit);
-            if (subsequences.isEmpty()) {
+            elem.getValue().collectSubsequenceAboveCount(subsequencesAndCount, curSubsequence, (int) countLimit);
+            if (subsequencesAndCount.isEmpty()) {
                 continue;
             }
 
             // evaluate probability for each routes
             double probability = 0.0;
-            for (List<StateTransition> subsequence: subsequences) {
-                probability += agent.evaluateSubsequenceProbability(subsequence);
+            for (Pair<List<StateTransition>, Integer> entry: subsequencesAndCount) {
+                probability += agent.evaluateSubsequenceProbability(entry.left) * agent.dupCountToRejectRatio(entry.right);
             }
-
+            System.out.println(String.format("[APE_MT_DEBUG] reject transition prob %.3f transition %s", probability, elem.getKey()));
             ret.put(elem.getKey(), probability);
         }
+        // if (curNode != root)
+        //     root.print(0, 5, curNode);
         return ret;
     }
 
