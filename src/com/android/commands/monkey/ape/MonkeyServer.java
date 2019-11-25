@@ -243,7 +243,6 @@ public class MonkeyServer implements Runnable {
     public void alertCrash() {
         synchronized (this) {
             last_idle_time = -1; // crashed
-            connection_cnt = 0;
             mainTid = -1;
             notifyAll();
         }
@@ -255,10 +254,13 @@ public class MonkeyServer implements Runnable {
     public long waitForIdle(long fromMillis, long timeoutMillis) {
         long time_end = System.currentTimeMillis() + timeoutMillis;
         long last_time_fetched;
-        long time_current;
+        long time_current = System.currentTimeMillis();
         while (true) {
             synchronized (this) {
                 last_time_fetched = last_idle_time;
+                if (connection_cnt == 0) {
+                    break;
+                }
             }
             System.out.println("[MonkeyServer] idle fetch " + last_time_fetched);
             time_current = System.currentTimeMillis();
@@ -441,7 +443,7 @@ public class MonkeyServer implements Runnable {
                 e.printStackTrace(serverlog_pw);
                 synchronized (this) {
                     last_idle_time = -1;
-                    connection_cnt = 0;
+                    connection_cnt -= 1;
                     mainTid = -1;
                 }
                 continue;
@@ -458,7 +460,7 @@ public class MonkeyServer implements Runnable {
                     } catch (IOException e2) {}
                     synchronized (this) {
                         last_idle_time = -1;
-                        connection_cnt = 0;
+                        connection_cnt -= 1;
                         mainTid = -1;
                     }
                     break;
@@ -518,7 +520,7 @@ public class MonkeyServer implements Runnable {
                     } catch (IOException e2) {}
                     synchronized (this) {
                         last_idle_time = -1;
-                        connection_cnt = 0;
+                        connection_cnt -= 1;
                         mainTid = -1;
                     }
                     break;

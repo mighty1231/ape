@@ -844,10 +844,6 @@ public class MonkeySourceApe implements MonkeyEventSource {
                         System.out.println("[APE_MT] Lastlast transition met target");
                         System.out.println("[APE_MT] - state " + lastlastTransition.getSource().toString());
                         System.out.println("[APE_MT] - transition " + lastlastTransition.getCurrentStateTransition().toString());
-                    } else {
-                        if (mAgent instanceof TargetAgent) {
-                            ((TargetAgent) mAgent).metNonTarget();
-                        }
                     }
                 }
             }
@@ -1365,8 +1361,6 @@ public class MonkeySourceApe implements MonkeyEventSource {
                         long result = mMonkeyServer.waitForIdle(lastEventPoppedTime, waitMillis);
                         eventPoppedTimes.add(lastEventPoppedTime);
                     }
-
-                    sleep(200);
                 }
 
                 // original code from APE

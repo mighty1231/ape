@@ -6,8 +6,8 @@ import static com.android.commands.monkey.ape.utils.Config.fallbackToGraphTransi
 import static com.android.commands.monkey.ape.utils.Config.fillTransitionsByHistory;
 import static com.android.commands.monkey.ape.utils.Config.trivialActivityRankThreshold;
 import static com.android.commands.monkey.ape.utils.Config.useActionDiffer;
-import static com.android.commands.monkey.ape.utils.Config.mhratio1;
-import static com.android.commands.monkey.ape.utils.Config.mhratio2;
+import static com.android.commands.monkey.ape.utils.Config.stateScoreRatio;
+import static com.android.commands.monkey.ape.utils.Config.stateScoreReducRatio;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -181,23 +181,20 @@ public class TargetAgent extends StatefulAgent {
 
     private int[] actionCounters;
     private ActivityNode backToActivity;
-    private boolean changeReady = false;
+    private boolean strategyChangeReady = false;
+    private boolean strategyChanged = false;
     private final Map<State, Double> stateToScore = new HashMap<>();
     private int earlyStageBuffer;
     private long countLimit;
     private int metTargetCounter;
-    private int targetNotFoundCounter;
+    private int strategyFailedCounter;
     private int metNoTargetCounter;
+    private double currentScoreReducRatio;
     private Map<State, Map<StateTransition, Double>> stateToTransitionToScore = new HashMap<>();
+    private StateTransition lastChosenStateTransition;
 
     public TargetAgent(MonkeySourceApe ape, Graph graph) {
         this(ape, graph, defaultEpsilon);
-        earlyStageBuffer = 0;
-        countLimit = Config.getLong("ape.mt.countlim", 0);
-        metTargetCounter = 0;
-        targetNotFoundCounter = 0;
-        metNoTargetCounter = 0;
-        disableFuzzing = true;
     }
 
     public TargetAgent(MonkeySourceApe ape, Graph graph, double epsilon) {
@@ -206,20 +203,24 @@ public class TargetAgent extends StatefulAgent {
         earlyStageBuffer = 0;
         countLimit = Config.getLong("ape.mt.countlim", 0);
         metTargetCounter = 0;
-        targetNotFoundCounter = 0;
+        strategyFailedCounter = 0;
         metNoTargetCounter = 0;
+        currentScoreReducRatio = stateScoreRatio;
+        lastChosenStateTransition = null;
 
         this.actionCounters = new int[TargetEventType.values().length];
-        disableFuzzing = true;
     }
 
     @Override
     public void startNewEpisode() {
-        getGraph().splitSubsequenceTrie();
         super.startNewEpisode();
+        getGraph().splitSubsequenceTrie();
         metTargetCounter = 0;
-        targetNotFoundCounter = 0;
+        strategyFailedCounter = 0;
         metNoTargetCounter = 0;
+        currentScoreReducRatio = stateScoreRatio;
+        lastChosenStateTransition = null;
+        actionToDoubtPoint.clear();
     }
 
     @Override
@@ -227,29 +228,67 @@ public class TargetAgent extends StatefulAgent {
         if (!isTargetMode()) {
             super.checkStable();
         } else {
-            Logger.format("Graph Stable Counter: metTargetCounter (%d), targetNotFoundCounter (%d)",
-                    metTargetCounter, targetNotFoundCounter);
+            Logger.format("Graph Stable Counter: metTargetCounter (%d), strategyFailedCounter (%d), metNoTargetCounter (%d)",
+                    metTargetCounter, strategyFailedCounter, metNoTargetCounter);
             if (metTargetCounter >= 5) {
                 requestRestart();
                 metTargetCounter = 0;
             }
-            if (targetNotFoundCounter >= 5) {
+            if (strategyFailedCounter >= 5) {
                 requestRestart();
-                targetNotFoundCounter = 0;
+                strategyFailedCounter = 0;
             }
             if (metNoTargetCounter >= 300) {
                 requestRestart();
                 metNoTargetCounter = 0;
+                currentScoreReducRatio = stateScoreRatio;
             }
         }
     }
 
-    public void metTarget() {
-        metTargetCounter++;
+    protected ModelAction checkFuzzing(ModelAction action) {
+        action = super.checkFuzzing(action);
+        if (strategyChanged)
+            disableFuzzing = false;
+        else
+            disableFuzzing = true;
+
+        return action;
     }
 
-    public void metNonTarget() {
+    public void metTarget() {
+        metTargetCounter++;
+        metNoTargetCounter--;
+        currentScoreReducRatio /= stateScoreReducRatio;
+    }
+
+    private Map<ModelAction, Integer> actionToDoubtPoint = new HashMap<>();
+
+    @Override
+    public void onVisitStateTransition(StateTransition edge) {
+        System.out.println(String.format("[APE_MT_DEBUG] metNonTarget counter %d ratio %.9f", metNoTargetCounter, currentScoreReducRatio));
+        super.onVisitStateTransition(edge);
         metNoTargetCounter++;
+        currentScoreReducRatio *= stateScoreReducRatio;
+        ModelAction action = edge.getAction();
+        if (lastChosenStateTransition != null) {
+            if (lastChosenStateTransition.getSource() == edge.getSource()
+                && lastChosenStateTransition.getAction() == action) {
+                if (lastChosenStateTransition.getTarget() != edge.getTarget()) {
+                    System.out.println(String.format("[APE_MT_WARNING] transition %s chosen but %s was executed", lastChosenStateTransition, edge));
+                    Integer point = actionToDoubtPoint.get(action);
+                    if (point == null) {
+                        actionToDoubtPoint.put(action, 1);
+                    } else {
+                        actionToDoubtPoint.put(action, point + 1);
+                    }
+                } else {
+                    actionToDoubtPoint.put(action, 0);
+                }
+            } else {
+                System.out.println("[APE_MT] rebuild done?");
+            }
+        }
     }
 
     protected boolean isEntryState(State state) {
@@ -345,16 +384,14 @@ public class TargetAgent extends StatefulAgent {
                     Logger.iformat("- %s", action);
                 }
             }
-            if (changeReady) {
+            if (strategyChangeReady) {
                 if (!getGraph().hasMetTargetMethod()) {
-                    System.out.println("[APE_MT_WARNING] TargetMethod activated but target method is not found");
+                    System.out.println("[APE_MT_WARNING] Changing strategy requested but target method is not invoked");
                     earlyStageBuffer = 10;
-                } else {
-                    if (disableFuzzing == true && earlyStageBuffer == 0) {
-                        disableFuzzing = false;
-                        earlyStageBuffer = 30;
-                        System.out.println("[APE_MT] TargetAgent: strategy changed");
-                    }
+                } else if (!strategyChanged) {
+                    strategyChanged = true;
+                    earlyStageBuffer = 30;
+                    System.out.println("[APE_MT] TargetAgent: strategy changed");
                 }
             }
         }
@@ -376,6 +413,8 @@ public class TargetAgent extends StatefulAgent {
                 logActionSelected(resolved, TargetEventType.TARGET);
                 return resolved;
             }
+
+            lastChosenStateTransition = null;
         }
 
         if (earlyStageBuffer > 0)
@@ -550,10 +589,7 @@ public class TargetAgent extends StatefulAgent {
                 thisFound = true;
             }
             double score;
-            if (targetStates.contains(state))
-                score = stateToScore.get(state) * mhratio1;
-            else
-                score = stateToScore.get(state) * mhratio2;
+            score = stateToScore.get(state) * currentScoreReducRatio;
             Set<StateTransition> transitions = graph.getInStateTransitions(state);
             int insertion_idx = -1;
             for (StateTransition transition: transitions) {
@@ -573,7 +609,7 @@ public class TargetAgent extends StatefulAgent {
         if (thisFound == false) {
             System.out.println("[APE_MT_WARNING] There is no way to go to target.");
             earlyStageBuffer += 5;
-            targetNotFoundCounter ++;
+            strategyFailedCounter ++;
             return null;
         }
 
@@ -585,11 +621,11 @@ public class TargetAgent extends StatefulAgent {
         if (transitionToAction.isEmpty()) {
             System.out.println("[APE_MT_WARNING] Transition is not found");
             earlyStageBuffer += 5;
-            targetNotFoundCounter ++;
+            strategyFailedCounter ++;
             return null;
         }
 
-        targetNotFoundCounter = 0;
+        strategyFailedCounter = 0;
         Map<StateTransition, Double> transitionsToRejectRatio = graph.getTransitionsToRejectRatio(this, newState, countLimit);
         if (transitionsToRejectRatio != null && !transitionsToRejectRatio.isEmpty()) {
             double sum = 0.0;
@@ -641,8 +677,8 @@ public class TargetAgent extends StatefulAgent {
             chosenTransition = lastTransition;
         }
         System.out.println(String.format("[APE_MT_DEBUG] candidate transition = %s with prob %.3f", chosenTransition, transitionToScore.get(chosenTransition)));
+        lastChosenStateTransition = chosenTransition;
         return transitionToAction.get(chosenTransition);
-
     }
     protected ModelAction selectNewActionEpsilonGreedyRandomly() {
         ModelAction back = newState.getBackAction();
@@ -917,7 +953,7 @@ public class TargetAgent extends StatefulAgent {
     public void onActivityStopped() {
         super.onActivityStopped();
         metTargetCounter = 0;
-        targetNotFoundCounter = 0;
+        strategyFailedCounter = 0;
     }
 
     protected boolean egreedy() {
@@ -1107,15 +1143,16 @@ public class TargetAgent extends StatefulAgent {
     }
 
     public void alertHalf() {
-        Logger.iprintln("Half time/counter consumed");
-        changeReady = true;
+        System.out.println("[APE_MT] Half time/counter consumed");
+        strategyChangeReady = true;
         if (getGraph().hasMetTargetMethod()) {
-            disableFuzzing = false;
+            strategyChanged = true;
+            System.out.println("[APE_MT] TargetAgent: strategy changed");
         }
     }
 
     public boolean isTargetMode() {
-        return disableFuzzing == false;
+        return strategyChanged;
     }
 
     protected ModelAction selectNewActionEarlyStageForwardGreedy() {
@@ -1242,6 +1279,26 @@ public class TargetAgent extends StatefulAgent {
     @Override
     public void onBadState(int lastBadStateCount, int badStateCounter) {
         logEvent(TargetEventType.BAD_STATE);
+    }
+
+    protected int getThrottleForNewAction(State state, ModelAction action) {
+        int throttle = super.getThrottleForNewAction(state, action);
+
+        throttle += 200;
+        Collection<StateTransition> edges = getGraph().getOutStateTransitions(action);
+        int sz = edges.size();
+        if (sz > 1) {
+            Integer unreliablePoint = actionToDoubtPoint.get(action);
+            if (unreliablePoint != null && unreliablePoint != 0) {
+                throttle += (unreliablePoint % 5) * 400;
+                System.out.println(String.format("[APE_MT_WARNING] action %s (unreliable=%d) set throttle %d", action.toString(), sz, throttle));
+                if (unreliablePoint == 10) {
+                    System.out.println("[APE_MT_WARNING] request restart");
+                    requestRestart();
+                }
+            }
+        }
+        return throttle;
     }
 
 }
