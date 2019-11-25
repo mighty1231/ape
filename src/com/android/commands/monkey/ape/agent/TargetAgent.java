@@ -220,7 +220,7 @@ public class TargetAgent extends StatefulAgent {
         metNoTargetCounter = 0;
         currentScoreReducRatio = stateScoreRatio;
         lastChosenStateTransition = null;
-        actionToDoubtPoint.clear();
+        // actionToDoubtPoint.clear();
     }
 
     @Override
@@ -233,6 +233,7 @@ public class TargetAgent extends StatefulAgent {
             if (metTargetCounter >= 5) {
                 requestRestart();
                 metTargetCounter = 0;
+                currentScoreReducRatio = stateScoreRatio;
             }
             if (strategyFailedCounter >= 5) {
                 requestRestart();
@@ -268,27 +269,27 @@ public class TargetAgent extends StatefulAgent {
     public void onVisitStateTransition(StateTransition edge) {
         System.out.println(String.format("[APE_MT_DEBUG] metNonTarget counter %d ratio %.9f", metNoTargetCounter, currentScoreReducRatio));
         super.onVisitStateTransition(edge);
-        metNoTargetCounter++;
-        currentScoreReducRatio *= stateScoreReducRatio;
-        ModelAction action = edge.getAction();
-        if (lastChosenStateTransition != null) {
-            if (lastChosenStateTransition.getSource() == edge.getSource()
-                && lastChosenStateTransition.getAction() == action) {
-                if (lastChosenStateTransition.getTarget() != edge.getTarget()) {
-                    System.out.println(String.format("[APE_MT_WARNING] transition %s chosen but %s was executed", lastChosenStateTransition, edge));
-                    Integer point = actionToDoubtPoint.get(action);
-                    if (point == null) {
-                        actionToDoubtPoint.put(action, 1);
-                    } else {
-                        actionToDoubtPoint.put(action, point + 1);
-                    }
-                } else {
-                    actionToDoubtPoint.put(action, 0);
-                }
-            } else {
-                System.out.println("[APE_MT] rebuild done?");
-            }
-        }
+        // metNoTargetCounter++;
+        // currentScoreReducRatio *= stateScoreReducRatio;
+        // ModelAction action = edge.getAction();
+        // if (lastChosenStateTransition != null) {
+        //     if (lastChosenStateTransition.getSource() == edge.getSource()
+        //         && lastChosenStateTransition.getAction() == action) {
+        //         if (lastChosenStateTransition.getTarget() != edge.getTarget()) {
+        //             System.out.println(String.format("[APE_MT_WARNING] transition %s chosen but %s was executed", lastChosenStateTransition, edge));
+        //             Integer point = actionToDoubtPoint.get(action);
+        //             if (point == null) {
+        //                 actionToDoubtPoint.put(action, 1);
+        //             } else {
+        //                 actionToDoubtPoint.put(action, point + 1);
+        //             }
+        //         } else {
+        //             actionToDoubtPoint.put(action, 0);
+        //         }
+        //     } else {
+        //         System.out.println("[APE_MT] rebuild done?");
+        //     }
+        // }
     }
 
     protected boolean isEntryState(State state) {
@@ -954,6 +955,7 @@ public class TargetAgent extends StatefulAgent {
         super.onActivityStopped();
         metTargetCounter = 0;
         strategyFailedCounter = 0;
+        currentScoreReducRatio = stateScoreRatio;
     }
 
     protected boolean egreedy() {
@@ -1283,22 +1285,23 @@ public class TargetAgent extends StatefulAgent {
 
     protected int getThrottleForNewAction(State state, ModelAction action) {
         int throttle = super.getThrottleForNewAction(state, action);
+        return throttle += 200;
 
-        throttle += 200;
-        Collection<StateTransition> edges = getGraph().getOutStateTransitions(action);
-        int sz = edges.size();
-        if (sz > 1) {
-            Integer unreliablePoint = actionToDoubtPoint.get(action);
-            if (unreliablePoint != null && unreliablePoint != 0) {
-                throttle += (unreliablePoint % 5) * 400;
-                System.out.println(String.format("[APE_MT_WARNING] action %s (unreliable=%d) set throttle %d", action.toString(), sz, throttle));
-                if (unreliablePoint == 10) {
-                    System.out.println("[APE_MT_WARNING] request restart");
-                    requestRestart();
-                }
-            }
-        }
-        return throttle;
+        // throttle += 200;
+        // Collection<StateTransition> edges = getGraph().getOutStateTransitions(action);
+        // int sz = edges.size();
+        // if (sz > 1) {
+        //     Integer unreliablePoint = actionToDoubtPoint.get(action);
+        //     if (unreliablePoint != null && unreliablePoint != 0) {
+        //         throttle += (unreliablePoint % 5) * 400;
+        //         System.out.println(String.format("[APE_MT_WARNING] action %s (unreliable=%d) set throttle %d", action.toString(), sz, throttle));
+        //         if (unreliablePoint == 10) {
+        //             System.out.println("[APE_MT_WARNING] request restart");
+        //             requestRestart();
+        //         }
+        //     }
+        // }
+        // return throttle;
     }
 
 }
