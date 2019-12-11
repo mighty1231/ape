@@ -1358,7 +1358,6 @@ public class MonkeySourceApe implements MonkeyEventSource {
                         } else {
                             waitMillis = 1000;
                         }
-                        long result = mMonkeyServer.waitForIdle(lastEventPoppedTime, waitMillis);
                         eventPoppedTimes.add(lastEventPoppedTime);
                     }
                 }

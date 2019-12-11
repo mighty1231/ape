@@ -252,38 +252,11 @@ public class MonkeyServer implements Runnable {
      * return -1 for timeout otherwise last idle time
      */
     public long waitForIdle(long fromMillis, long timeoutMillis) {
-        long time_end = System.currentTimeMillis() + timeoutMillis;
         long last_time_fetched;
-        long time_current = System.currentTimeMillis();
-        while (true) {
-            synchronized (this) {
-                last_time_fetched = last_idle_time;
-                if (connection_cnt == 0) {
-                    break;
-                }
-            }
-            System.out.println("[MonkeyServer] idle fetch " + last_time_fetched);
-            time_current = System.currentTimeMillis();
-            if (last_time_fetched == -1 /* crash */
-                  || fromMillis < last_time_fetched /* caught idle */
-                  || time_current >= time_end /* timeout */) {
-                break;
-            }
-            synchronized (this) {
-                try {
-                    if (time_end - time_current > 10000) {
-                        wait(10000);
-                    } else {
-                        wait(time_end - time_current);
-                    }
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                    Thread.currentThread().interrupt();
-                }
-            }
+        synchronized (this) {
+            last_time_fetched = last_idle_time;
         }
-        if (last_time_fetched == -1 || time_current > time_end)
-            return -1;
+        System.out.println("[MonkeyServer] idle fetch " + last_time_fetched);
         return last_time_fetched;
     }
 
@@ -505,7 +478,7 @@ public class MonkeyServer implements Runnable {
                             tmp = readLong();
                             synchronized (this) {
                                 last_idle_time = tmp;
-                                notify();
+                                notifyAll();
                             }
                             break;
                         default:
