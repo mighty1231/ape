@@ -403,11 +403,11 @@ public class MonkeyServer implements Runnable {
                     serverlog_pw.close();
                     throw new RuntimeException("handshake");
                 }
+                serverlog_pw.println(String.format("%d Handshake success", System.currentTimeMillis()));
                 writeInt32(kHandShake);
                 mainTid = readInt32();
                 directory = readMTDirectory();
                 writeInt32(target_methods.size()); // size could be zero
-                serverlog_pw.println(String.format("%d Handshake success", System.currentTimeMillis()));
                 for (TargetMethod target : target_methods) {
                     target.writeTo(os);
                 }
@@ -415,6 +415,7 @@ public class MonkeyServer implements Runnable {
                 serverlog_pw.println(String.format("Sending target methods failed, currentTimeMillis  = %d", System.currentTimeMillis()));
                 e.printStackTrace(serverlog_pw);
                 synchronized (this) {
+                    try { socket.close(); } catch(IOException e2) {}
                     last_idle_time = -1;
                     connection_cnt -= 1;
                     mainTid = -1;
